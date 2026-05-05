@@ -1,0 +1,8 @@
+.Toastify__toast {
+  border-radius: 18px;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+.Toastify__toast-body {
+  font-weight: 700;
+}

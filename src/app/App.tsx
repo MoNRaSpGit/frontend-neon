@@ -1,0 +1,51 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { DashboardPage } from "../features/auth/DashboardPage";
+import { LoginPage } from "../features/auth/LoginPage";
+import { ProtectedRoute } from "../features/auth/ProtectedRoute";
+import { RegisterPage } from "../features/auth/RegisterPage";
+import { NeonHomePage } from "../features/neon/NeonHomePage";
+import { SaasAdminHomePage } from "../features/saas-admin/SaasAdminHomePage";
+
+function HealthPage() {
+  return (
+    <main style={{ fontFamily: "sans-serif", padding: "2rem" }}>
+      <h2>Frontend Neon OK</h2>
+    </main>
+  );
+}
+
+export function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/saas-admin"
+        element={
+          <ProtectedRoute requireSaasAdmin>
+            <SaasAdminHomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/neon"
+        element={
+          <ProtectedRoute requiredModule="neon">
+            <NeonHomePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/health" element={<HealthPage />} />
+      <Route path="*" element={<Navigate to="/neon" replace />} />
+    </Routes>
+  );
+}
