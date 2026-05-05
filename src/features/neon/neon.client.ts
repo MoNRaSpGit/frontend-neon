@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../../shared/config/api";
 import { fetchWithAuth } from "../auth/auth.client";
-import { NeonActivitiesResponse, NeonActivity, NeonClient, NeonClientsResponse, NeonStatus } from "./neon.types";
+import { NeonAccount, NeonAccountsResponse, NeonActivitiesResponse, NeonActivity, NeonClient, NeonClientsResponse, NeonStatus } from "./neon.types";
 
 async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
@@ -21,6 +21,16 @@ export async function listNeonClients(): Promise<NeonClient[]> {
   }
 
   const payload = await readJson<NeonClientsResponse>(response);
+  return payload.items;
+}
+
+export async function listNeonAccounts(): Promise<NeonAccount[]> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/accounts`);
+  if (!response.ok) {
+    throw new Error("No se pudieron cargar las cuentas");
+  }
+
+  const payload = await readJson<NeonAccountsResponse>(response);
   return payload.items;
 }
 
@@ -76,6 +86,29 @@ export async function createNeonActivity(input: {
   const payload = await readJson<{ item?: NeonActivity; message?: string }>(response);
   if (!response.ok || !payload.item) {
     throw new Error(payload.message || "No se pudo crear la actividad");
+  }
+
+  return payload.item;
+}
+
+export async function createNeonActivityPayment(
+  activityId: number,
+  input: {
+    accountId: number;
+    paymentDate: string;
+    paidAmount: number;
+    description?: string;
+  }
+) {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/activities/${activityId}/payments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  const payload = await readJson<{ item?: NeonActivity; message?: string }>(response);
+  if (!response.ok || !payload.item) {
+    throw new Error(payload.message || "No se pudo registrar el pago");
   }
 
   return payload.item;
