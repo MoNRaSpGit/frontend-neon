@@ -68,3 +68,4 @@ Todavia no implementa:
 ## Siguiente lectura
 
 - [Contexto funcional del producto](./product-context.md)
+- [Diseno tecnico MVP](./mvp-technical-design.md)

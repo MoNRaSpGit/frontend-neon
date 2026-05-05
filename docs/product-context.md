@@ -1,146 +1,279 @@
 # Neon - Contexto funcional
 
-Fecha de captura: 2026-05-05
+Fecha de actualizacion: 2026-05-05
 
 ## Objetivo general
 
-Desarrollar un sistema de gestion financiera personal y empresarial orientado a servicios y eventos.
+Desarrollar un sistema de gestion financiera orientado a actividades y trabajos, con foco en reemplazar planillas manuales y centralizar ingresos, gastos y resultados del negocio.
 
-## Idea central
+El sistema debe ser simple, evitar duplicacion de datos y permitir obtener reportes claros para tomar decisiones.
 
-El sistema debe registrar cada movimiento financiero una sola vez.
+## Enfoque general
 
-Desde ese registro:
+El sistema es `activity-first`.
 
-- se distribuye automaticamente en distintos destinos
-- impacta en cuentas
-- alimenta reportes
-- se asocia a actividades, clientes o gastos personales
+El usuario:
 
-## Pilares del producto
+- comienza creando una actividad
+- luego registra ingresos y gastos en base a esa actividad o de forma independiente
 
-### 1. Actividades
+## Actividades
 
-Cada trabajo o evento tiene:
+Cada actividad representa un trabajo.
 
-- numero correlativo automatico
+Debe incluir:
+
+- numero correlativo automatico que reinicia cada ano
 - fecha
 - descripcion
-- cliente asociado
-- tipo de ingreso
-- estado operativo y financiero
+- cliente
+- tipo de actividad
+- precio del trabajo definido manualmente
 
-Estados esperados:
+Tipos iniciales:
+
+- neon
+- movil audiovisual
+- otros
+
+## Estado financiero de la actividad
+
+Cada actividad debe mostrar:
+
+- precio total
+- monto cobrado
+- monto pendiente
+
+El saldo se calcula automaticamente.
+
+## Estados comerciales
+
+Una actividad puede estar en:
 
 - pendiente de facturar
 - facturado
 - pendiente de cobrar
 - cobrado
 
-### 2. Movimientos financieros
+Regla importante:
 
-El usuario registra:
+- el estado comercial es independiente del flujo real de dinero
+
+## Movimientos
+
+El sistema maneja:
 
 - ingresos
-- egresos
+- gastos
 
 Cada movimiento tiene:
 
-- fecha
+- fecha editable
 - monto total
 - cuenta
 - descripcion
 
-### 3. Distribucion de movimientos
+## Gastos y distribucion
 
-Un mismo movimiento puede dividirse en multiples partes.
+Un gasto puede:
 
-Ejemplo:
+- no dividirse y quedar 100 por ciento en un solo destino
+- dividirse en multiples partes
 
-- gasto total `500`
-- `200` para actividad `#24`
-- `300` para gasto personal
+Ejemplos:
 
-Esto es nativo del sistema y no una opcion secundaria.
+- `500` -> gastos personales
+- `500` -> `200` actividad `#1`, `300` personal
+
+Reglas obligatorias:
+
+- la suma de las partes debe ser igual al total
+- si no coincide, no deja guardar
+- el gasto se registra una sola vez
 
 ## Centros de costo
 
-Todo se organiza por centros de costo:
+Destinos posibles:
 
 - actividades
 - gastos personales
 - vehiculo
 - otros
 
-Cada parte de un movimiento debe asignarse a un centro de costo.
-
 ## Vehiculo
 
-El vehiculo se trata como centro de costo especial.
+El vehiculo funciona como centro de costo especial.
 
 Debe permitir:
 
-- gastos
+- registrar gastos
 - kilometraje opcional
 - litros opcionales
 
-Con eso despues se busca generar:
+Con eso despues se busca calcular:
 
-- consumo promedio
+- consumo
 - gasto total del vehiculo
 
 ## Clientes
 
-Cada actividad puede tener un cliente asociado.
+Cada actividad puede tener un cliente.
 
-Se espera ver:
+Debe permitir:
 
-- deuda actual rapida
-- historial completo expandible
+- ver deuda actual en vista rapida
+- ver historial completo expandible
 
 ## Cuentas
 
-Se manejan multiples cuentas:
+El sistema maneja multiples cuentas:
 
 - caja
 - bancos
 
-Cada movimiento impacta en una cuenta.
+Reglas:
 
-## Reportes clave
+- cada movimiento impacta en una cuenta
+- el saldo se calcula automaticamente en base a movimientos
 
-El sistema debe soportar:
+## Ingresos
 
-- ingresos por periodo
-- egresos por periodo
-- balance
-- ingresos por tipo
-- gastos por categoria
+Hay dos tipos:
+
+### 1. Desde actividad
+
+Se registran desde la actividad con accion tipo `Registrar pago`.
+
+Caracteristicas:
+
+- pueden ser multiples pagos parciales
+- generan ingreso vinculado a la actividad
+- impactan en la cuenta elegida
+
+El sistema calcula automaticamente:
+
+- total cobrado
+- pendiente
+
+### 2. Independientes
+
+Ingresos no asociados a una actividad.
+
+Ejemplo:
+
+- `gane 50 en la loteria`
+
+## Reportes
+
+Los reportes son el valor principal del sistema.
+
+Debe permitir:
+
+- ingresos totales por periodo
+- gastos totales por periodo
+- balance general
 - resultado por actividad
-- deuda e historial por cliente
-- gasto y consumo de vehiculo
+- gastos por categoria
+- ingresos por tipo
+- deuda de clientes
+- saldos por cuenta
+- gastos del vehiculo
 
-## Flujo esperado del usuario
+Reglas iniciales:
+
+- periodo por defecto: mes actual
+- orden principal: por fecha
+
+## UX e interfaz
+
+La interfaz debe ser simple y visual.
+
+Pantalla principal tipo tarjetas:
+
+- Actividades
+- Gastos
+- Ingresos
+- Reportes
+
+Cada tarjeta muestra un resumen rapido y luego lleva al detalle.
+
+Ejemplos:
+
+- Actividades -> pendientes
+- Gastos -> total del mes
+- Ingresos -> total del mes
+
+## Flujo principal
 
 - crear actividad
-- registrar ingresos
-- registrar gastos
-- dividir movimientos si aplica
-- asociar centros de costo
+- registrar gastos con o sin division
+- registrar ingresos desde actividad o independientes
+- ver actividad y resultado
 - consultar reportes
 
-## Criterio UX
+## Edicion y borrado
 
-- flujo simple
-- rapido
-- sin duplicacion de datos
-- registrar facil
-- ver resultados rapido
+Se puede editar todo.
 
-## Regla de implementacion
+El borrado es logico:
 
-Este contexto define el bloque funcional siguiente.
+- no aparece en la vista normal
+- queda guardado internamente
 
-No obliga a resolver todo junto en una sola iteracion.
+### Reglas de borrado
 
-La implementacion debe bajar esto en etapas cortas sobre el shell ya publicado.
+Si se borra un gasto:
+
+- se recalculan automaticamente actividad, reportes y saldos
+
+Si se cancela o elimina una actividad:
+
+- los gastos no se eliminan
+- quedan asociados como `Actividad cancelada`
+
+## Categorias
+
+Existen categorias iniciales:
+
+- nafta
+- alquiler
+- servicios
+- otras necesarias para arrancar
+
+El usuario puede crear nuevas categorias.
+
+## Fechas
+
+Todos los registros tienen fecha editable.
+
+Reglas:
+
+- se pueden cargar datos atrasados
+- la visualizacion se ordena por fecha
+
+## Moneda
+
+El sistema trabaja en pesos.
+
+## Resumen final
+
+Este no es un sistema contable tradicional.
+
+Es un sistema de control financiero orientado a actividades donde el usuario:
+
+- registra trabajos
+- registra ingresos y gastos
+- divide gastos en multiples destinos
+- obtiene reportes automaticos
+
+Foco principal:
+
+- simplicidad
+- evitar duplicacion
+- claridad total del negocio
+
+## Estado
+
+Contexto cerrado.
+
+Listo para desarrollo.
