@@ -546,12 +546,7 @@ export function NeonIncomeSection({
                       </div>
                       <strong style={activityDescriptionStyle}>{summary.activityCode}</strong>
                       <span style={activityClientStyle}>{summary.activityDescription}</span>
-                      <span style={activityClientStyle}>{summary.clientLabel}</span>
                       <span style={activityClientStyle}>Pendiente {formatMoney(summary.pendingAmount)}</span>
-                      <span style={activityClientStyle}>{summary.latestPaymentAccountName || "Cuenta"} · {summary.latestPaymentDescription || "Pago sin nota"}</span>
-                      <span style={activityClientStyle}>
-                        {summary.paymentsCount === 1 ? "1 cuota registrada" : `${summary.paymentsCount} cuotas registradas`}
-                      </span>
                       <span style={{ ...activityActionStyle, color: COLORS.accountAccent }}>Ir a movimientos</span>
                     </button>
                   ))}
