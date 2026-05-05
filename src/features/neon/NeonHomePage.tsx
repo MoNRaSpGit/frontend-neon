@@ -509,6 +509,11 @@ export function NeonHomePage() {
     void handleSelectActivity(activityId);
   }
 
+  function handleOpenRecentPayment(activityId: number) {
+    setSelectedSection("accounts");
+    setExpandedMovementActivityId(activityId);
+  }
+
   function handleSelectSection(section: NeonSectionKey) {
     setSelectedSection((current) => (current === section ? null : section));
   }
@@ -604,6 +609,7 @@ export function NeonHomePage() {
           savingPayment={savingPayment}
           onCreatePayment={handleCreatePayment}
           recentPayments={recentPayments}
+          onOpenRecentPayment={handleOpenRecentPayment}
         />
       ) : null}
 

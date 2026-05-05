@@ -355,6 +355,7 @@ type IncomeSectionProps = {
   savingPayment: boolean;
   onCreatePayment: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   recentPayments: RecentPayment[];
+  onOpenRecentPayment: (activityId: number) => void;
 };
 
 export function NeonIncomeSection({
@@ -371,7 +372,8 @@ export function NeonIncomeSection({
   accounts,
   savingPayment,
   onCreatePayment,
-  recentPayments
+  recentPayments,
+  onOpenRecentPayment
 }: IncomeSectionProps) {
   return (
     <>
@@ -517,7 +519,12 @@ export function NeonIncomeSection({
               {recentPayments.length > 0 ? (
                 <div style={wideActivityGridStyle}>
                   {recentPayments.map((payment) => (
-                    <div key={payment.id} style={paymentRowStyle}>
+                    <button
+                      key={payment.id}
+                      type="button"
+                      onClick={() => onOpenRecentPayment(payment.activityId)}
+                      style={{ ...paymentRowStyle, ...expenseSummaryButtonStyle }}
+                    >
                       <div style={activityRowTopStyle}>
                         <strong style={{ ...activityCodeStyle, color: "#116149" }}>{formatMoney(payment.paidAmount)}</strong>
                         <span style={activityStatusStyle}>{formatShortDate(payment.paymentDate)}</span>
@@ -525,7 +532,8 @@ export function NeonIncomeSection({
                       <strong style={activityDescriptionStyle}>{payment.activityCode}</strong>
                       <span style={activityClientStyle}>{payment.activityDescription}</span>
                       <span style={activityClientStyle}>{payment.accountName} · {payment.description || "Pago sin nota"}</span>
-                    </div>
+                      <span style={{ ...activityActionStyle, color: COLORS.accountAccent }}>Ir a movimientos</span>
+                    </button>
                   ))}
                 </div>
               ) : (
