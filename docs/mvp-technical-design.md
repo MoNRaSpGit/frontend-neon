@@ -304,14 +304,34 @@ No meter todavia:
 
 ## Orden recomendado de implementacion
 
-1. clientes
-2. actividades
-3. cuentas
+1. clientes `OK`
+2. actividades `OK`
+3. cuentas `OK`
 4. categorias
 5. gastos con o sin division
 6. ingresos desde actividad e independientes
-7. calculos de actividad y saldos
+7. calculos de actividad y saldos `OK parcial`
 8. reportes base
+
+## Corte actual implementado
+
+Hoy ya esta implementado y publicado:
+
+- clientes
+- actividades
+- cuentas base (`Caja`, `Banco`)
+- pagos desde actividad
+- pagos parciales
+- recalculo de `cobrado` y `pendiente`
+- saldo por cuenta calculado desde movimientos
+
+Lo proximo en la ruta MVP es:
+
+- categorias
+- gastos simples
+- `dividir gasto`
+- centros de costo
+- reportes base
 
 ## Resultado esperado del MVP
 

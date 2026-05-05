@@ -11,7 +11,12 @@ Regla actual:
 
 ## Estado actual
 
-`neon` esta en fase `shell` y el bloque 1 ya quedo cerrado.
+`neon` ya dejo atras el shell puro.
+
+Bloques cerrados hasta hoy:
+
+- bloque 1: shell en produccion
+- bloque 2 parcial: clientes, actividades, cuentas y `Registrar pago`
 
 Hoy ya existe:
 
@@ -22,6 +27,12 @@ Hoy ya existe:
 - `saas-admin` enlazado
 - endpoint backend activo
 - base conectada
+- alta de clientes
+- alta de actividades
+- detalle de actividad
+- cuentas base por tenant
+- registro de pagos desde actividad
+- recalculo automatico de `cobrado` y `pendiente`
 
 ## Validacion en produccion
 
@@ -40,30 +51,45 @@ Se confirmo:
 
 ## Alcance actual
 
-El shell actual muestra:
+El modulo actual ya permite:
+
+- crear clientes
+- crear actividades
+- ver actividades
+- ver detalle de actividad
+- registrar pagos parciales desde actividad
+- ver cuentas y saldo actual
+
+Todavia conserva la base del shell:
 
 - modulo
-- fase
 - tenant actual
 - usuario actual
 - estado de base
 - timestamp del backend
 
-Endpoint consumido:
+Endpoints principales consumidos:
 
 - `GET /api/v1/neon/status`
+- `GET /api/v1/neon/clients`
+- `POST /api/v1/neon/clients`
+- `GET /api/v1/neon/accounts`
+- `GET /api/v1/neon/activities`
+- `GET /api/v1/neon/activities/:id`
+- `POST /api/v1/neon/activities`
+- `POST /api/v1/neon/activities/:id/payments`
 
 ## Lo que todavia no hace
 
 Todavia no implementa:
 
-- actividades
-- movimientos
-- distribuciones
-- cuentas
+- gastos
+- dividir gasto
+- categorias
 - centros de costo
-- clientes
 - reportes
+- ingresos independientes
+- edicion y borrado
 
 ## Siguiente lectura
 
