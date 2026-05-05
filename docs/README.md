@@ -2,77 +2,107 @@
 
 Fecha de actualizacion: 2026-05-05
 
-Esta carpeta guarda la documentacion particular de `frontend-neon`.
+Esta carpeta guarda la documentacion puntual de `frontend-neon`.
 
-Regla actual:
+## Regla actual
 
-- la documentacion estructural del SaaS vive en `backend/docs`
-- la documentacion puntual del modulo `neon` vive aca
+- la estructura general del SaaS vive en `backend/docs`
+- el comportamiento real del frontend `neon` se documenta aca
 
 ## Estado actual
 
-`neon` ya dejo atras el shell puro.
+`neon` ya tiene un slice funcional real, publicado y usable para demo operativa.
 
 Bloques cerrados hasta hoy:
 
-- bloque 1: shell en produccion
-- bloque 2 parcial: clientes, actividades, cuentas, `Registrar pago` y gasto simple
+- login simplificado con acceso directo por boton
+- home por tarjetas principales
+- flujo base `Actividades -> Gastos -> Ingresos -> Movimientos`
+- gastos simples asociados a actividad
+- pagos parciales asociados a actividad
+- resumenes navegables entre bloques
 
-Hoy ya existe:
+## Lo que hoy existe en produccion
 
 - frontend publicado
 - auth SaaS real
-- routing protegido
-- dashboard base
-- `saas-admin` enlazado
-- endpoint backend activo
-- base conectada
-- alta de clientes
-- alta de actividades
-- detalle de actividad
-- cuentas base por tenant
-- registro de pagos desde actividad
-- recalculo automatico de `cobrado` y `pendiente`
-- categorias de gasto
-- registro de gasto simple
+- login reducido a un solo boton `Iniciar`
+- ruta protegida
+- 4 tarjetas principales:
+  - `Actividades`
+  - `Ingresos`
+  - `Gastos`
+  - `Movimientos`
+- al entrar, las tarjetas aparecen compactas y sin contenido desplegado
+- cada tarjeta despliega su modulo completo al hacer click
 
-## Validacion en produccion
+## Flujo actual de interfaz
 
-Se confirmo:
+### 1. Actividades
 
-- modulo: `neon`
-- fase: `shell`
-- tenant actual: `Neon Demo`
-- usuario actual: `neon.demo@saaspro.com`
-- DB: `connected`
+Permite:
 
-## Credenciales demo
+- agregar cliente
+- crear actividad
+- ver resumen de actividades pendientes
 
-- email: `neon.demo@saaspro.com`
-- clave: `demo12345`
+Comportamiento:
 
-## Alcance actual
+- los nombres de cliente se normalizan en mayuscula por palabra
+- los resumenes muestran hasta 3 items por defecto
+- si una actividad tiene gastos, la tarjeta muestra hasta 2 etiquetas y luego `...`
+- click en un resumen de actividad lleva a `Gastos`
 
-El modulo actual ya permite:
+### 2. Gastos
 
-- crear clientes
-- crear actividades
-- ver actividades
-- ver detalle de actividad
-- registrar pagos parciales desde actividad
-- ver cuentas y saldo actual
-- crear categorias de gasto
-- registrar gasto simple
+Permite:
 
-Todavia conserva la base del shell:
+- cargar gasto simple para la actividad seleccionada
+- elegir solo entre `Empresa` o `Personal`
+- impactar saldo de cuenta automaticamente
 
-- modulo
-- tenant actual
-- usuario actual
-- estado de base
-- timestamp del backend
+Comportamiento:
 
-Endpoints principales consumidos:
+- la actividad queda cargada automaticamente al entrar desde un resumen
+- el panel del lobby no navega
+- los resumenes de gastos se agrupan por actividad
+- cada tarjeta muestra hasta 3 gastos y luego `...`
+- click en un resumen de gasto lleva a `Ingresos`
+
+### 3. Ingresos
+
+Permite:
+
+- elegir actividad
+- registrar uno o varios pagos parciales
+
+Comportamiento:
+
+- `Ingresos registrados` se agrupa por actividad, no por pago individual
+- una actividad con varias cuotas mantiene una sola tarjeta acumulada
+- la tarjeta muestra solo:
+  - cobrado
+  - fecha
+  - actividad
+  - pendiente
+- click en un ingreso registrado lleva a `Movimientos`
+- se muestran 3 resumenes por defecto con `Ver mas / Ver todo / Ver menos`
+
+### 4. Movimientos
+
+Permite:
+
+- ver un resumen corto por actividad con movimiento
+- abrir detalle
+
+Detalle mostrado:
+
+- actividad
+- cobrado
+- gastado
+- pendiente
+
+## Endpoints principales consumidos
 
 - `GET /api/v1/neon/status`
 - `GET /api/v1/neon/clients`
@@ -87,15 +117,31 @@ Endpoints principales consumidos:
 - `GET /api/v1/neon/expenses`
 - `POST /api/v1/neon/expenses`
 
-## Lo que todavia no hace
+## Alcance real de esta etapa
+
+Ya permite:
+
+- crear clientes
+- crear actividades
+- cargar varios gastos a una actividad
+- cargar varios ingresos parciales a una actividad
+- ver resuemenes agrupados por actividad
+- navegar entre bloques desde los resumenes
+- ver movimientos finales por actividad
 
 Todavia no implementa:
 
 - dividir gasto
-- centros de costo
+- centros de costo reales
 - reportes
 - ingresos independientes
-- edicion y borrado
+- edicion y borrado funcionales
+
+## Credenciales demo
+
+- email interno: `neon.demo@saaspro.com`
+- clave interna: `demo12345`
+- en UI ya no se muestran campos: el acceso entra por boton `Iniciar`
 
 ## Siguiente lectura
 

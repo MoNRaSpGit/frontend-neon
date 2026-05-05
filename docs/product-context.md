@@ -15,7 +15,9 @@ El sistema es `activity-first`.
 El usuario:
 
 - comienza creando una actividad
-- luego registra ingresos y gastos en base a esa actividad o de forma independiente
+- luego registra gastos para esa actividad
+- despues registra ingresos para esa actividad
+- finalmente consulta movimientos del circuito completo
 
 ## Actividades
 
@@ -193,9 +195,13 @@ Pantalla principal tipo tarjetas:
 - Actividades
 - Gastos
 - Ingresos
-- Reportes
+- Movimientos
 
-Cada tarjeta muestra un resumen rapido y luego lleva al detalle.
+Comportamiento real actual:
+
+- al entrar se ven solo las 4 tarjetas compactas
+- cada tarjeta se despliega al hacer click
+- los resumenes internos conectan el flujo entre modulos
 
 Ejemplos:
 
@@ -206,10 +212,10 @@ Ejemplos:
 ## Flujo principal
 
 - crear actividad
-- registrar gastos con o sin division
-- registrar ingresos desde actividad o independientes
-- ver actividad y resultado
-- consultar reportes
+- registrar gasto simple para esa actividad
+- registrar ingresos parciales para esa actividad
+- ver movimientos resumidos
+- consultar el resultado operativo basico
 
 ## Edicion y borrado
 
@@ -233,14 +239,12 @@ Si se cancela o elimina una actividad:
 
 ## Categorias
 
-Existen categorias iniciales:
+En el flujo visible actual, el usuario elige solo entre:
 
-- nafta
-- alquiler
-- servicios
-- otras necesarias para arrancar
+- `Empresa`
+- `Personal`
 
-El usuario puede crear nuevas categorias.
+La UI ya no expone una grilla completa de categorias en esta etapa.
 
 ## Fechas
 
@@ -274,6 +278,10 @@ Foco principal:
 
 ## Estado
 
-Contexto cerrado.
+Contexto actualizado al cierre del slice actual.
 
-Listo para desarrollo.
+Listo para continuar con:
+
+- dividir gasto
+- centros de costo
+- reportes base
