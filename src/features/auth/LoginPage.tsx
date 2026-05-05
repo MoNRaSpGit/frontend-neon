@@ -10,6 +10,11 @@ import { saveSession } from "./auth.client";
 import { AuthSession } from "./auth.types";
 import { getDefaultAuthenticatedRoute } from "./module-routing";
 
+const DEMO_CREDENTIALS = {
+  email: "neon.demo@saaspro.com",
+  password: "demo12345"
+} as const;
+
 const loginSchema = z.object({
   email: z.string().email("Ingresa un email valido"),
   password: z.string().min(6, "La clave tiene que tener al menos 6 caracteres")
@@ -23,8 +28,8 @@ export function LoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
-      password: ""
+      email: DEMO_CREDENTIALS.email,
+      password: DEMO_CREDENTIALS.password
     }
   });
 
@@ -62,6 +67,10 @@ export function LoginPage() {
 
       <section style={cardStyle}>
         <form onSubmit={onSubmit} style={formStyle}>
+          <div style={demoNoticeStyle}>
+            <strong>Modo demo</strong>
+            <span>Este acceso de prueba ya queda cargado para entrar directo durante esta etapa.</span>
+          </div>
           <label style={fieldStyle}>
             <span>Email</span>
             <input type="email" {...form.register("email")} style={inputStyle} />
@@ -137,6 +146,17 @@ const cardStyle: React.CSSProperties = {
 const formStyle: React.CSSProperties = {
   display: "grid",
   gap: 14
+};
+
+const demoNoticeStyle: React.CSSProperties = {
+  display: "grid",
+  gap: 4,
+  padding: "12px 14px",
+  borderRadius: 18,
+  background: "#eef8ff",
+  border: "1px solid #cfe7f6",
+  color: "#21485b",
+  lineHeight: 1.45
 };
 
 const fieldStyle: React.CSSProperties = {
