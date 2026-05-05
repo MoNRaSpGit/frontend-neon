@@ -78,7 +78,7 @@ type RecentPayment = NeonActivityPayment & {
 
 type SharedCardsProps = {
   sectionCards: SectionCard[];
-  selectedSection: NeonSectionKey;
+  selectedSection: NeonSectionKey | null;
   onSelectSection: (section: NeonSectionKey) => void;
 };
 

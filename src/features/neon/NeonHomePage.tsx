@@ -1,4 +1,4 @@
-import { type CSSProperties, FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import {
   createNeonActivity,
@@ -30,7 +30,7 @@ import {
   getVisibleSummaryItems,
   toTitleCase
 } from "./neon.home.helpers";
-import { heroStyle, heroTitleStyle, pageStyle } from "./neon.home.styles";
+import { pageStyle } from "./neon.home.styles";
 import {
   NeonAccountsSection,
   NeonActivitiesSection,
@@ -41,7 +41,7 @@ import {
 import { NeonAccount, NeonActivity, NeonCategory, NeonClient, NeonExpense } from "./neon.types";
 
 export function NeonHomePage() {
-  const [demoStage, setDemoStage] = useState<1 | 2 | 3>(1);
+  const [selectedSection, setSelectedSection] = useState<NeonSectionKey | null>(null);
   const [clients, setClients] = useState<NeonClient[]>([]);
   const [accounts, setAccounts] = useState<NeonAccount[]>([]);
   const [categories, setCategories] = useState<NeonCategory[]>([]);
@@ -50,7 +50,6 @@ export function NeonHomePage() {
   const [selectedActivity, setSelectedActivity] = useState<NeonActivity | null>(null);
   const [expandedMovementActivityId, setExpandedMovementActivityId] = useState<number | null>(null);
   const [activityDetailsById, setActivityDetailsById] = useState<Record<number, NeonActivity>>({});
-  const [selectedSection, setSelectedSection] = useState<NeonSectionKey>("activities");
   const [visibleActivitySummaries, setVisibleActivitySummaries] = useState(3);
   const [visibleIncomeActivities, setVisibleIncomeActivities] = useState(3);
   const [visibleExpenseSummaries, setVisibleExpenseSummaries] = useState(3);
@@ -371,14 +370,12 @@ export function NeonHomePage() {
     }
 
     setSelectedSection("expenses");
-    setDemoStage(3);
     void handleSelectActivity(activityId);
   }
 
   function handleOpenIncomeForActivity(activity: NeonActivity) {
     setSelectedActivity(activity);
     setSelectedSection("income");
-    setDemoStage(3);
     setPaymentForm((current) => ({
       ...current,
       paidAmount: activity.pendingAmount > 0 ? String(activity.pendingAmount) : "",
@@ -509,8 +506,11 @@ export function NeonHomePage() {
     }
 
     setSelectedSection("income");
-    setDemoStage(3);
     void handleSelectActivity(activityId);
+  }
+
+  function handleSelectSection(section: NeonSectionKey) {
+    setSelectedSection((current) => (current === section ? null : section));
   }
 
   const sectionCards: Array<{
@@ -555,63 +555,19 @@ export function NeonHomePage() {
     }
   ];
 
-  const sectionLabels: Record<NeonSectionKey, string> = {
-    activities: "Actividades",
-    income: "Ingresos",
-    expenses: "Gastos",
-    accounts: "Movimientos"
-  };
-
-  const demoPanelStyle: CSSProperties = {
-    width: "100%",
-    maxWidth: 1080,
-    margin: "0 auto",
-    display: "flex",
-    justifyContent: "flex-end"
-  };
-
-  const demoButtonStyle: CSSProperties = {
-    minHeight: 28,
-    padding: "0 10px",
-    borderRadius: 9999,
-    border: `1px solid ${COLORS.border}`,
-    background: "transparent",
-    color: COLORS.inkSoft,
-    fontSize: 12,
-    fontWeight: 700,
-    cursor: "pointer"
-  };
-
   return (
     <main style={pageStyle}>
-      <section style={heroStyle}>
-        <h1 style={heroTitleStyle}>Control por actividades</h1>
-      </section>
+      <div style={{ paddingTop: selectedSection ? 0 : "clamp(56px, 12vh, 120px)" }}>
+        <NeonOverviewCards
+          sectionCards={sectionCards}
+          selectedSection={selectedSection}
+          onSelectSection={handleSelectSection}
+        />
+      </div>
 
-      <NeonOverviewCards
-        sectionCards={sectionCards}
-        selectedSection={selectedSection}
-        onSelectSection={(section) => {
-          setSelectedSection(section);
-          setDemoStage(1);
-        }}
-      />
-
-      <section style={demoPanelStyle}>
-        <button
-          type="button"
-          onClick={() => setDemoStage((current) => (current === 3 ? 1 : ((current + 1) as 1 | 2 | 3)))}
-          style={demoButtonStyle}
-          aria-label={`Cambiar vista demo de ${sectionLabels[selectedSection]}`}
-          title={`Cambiar vista demo de ${sectionLabels[selectedSection]}`}
-        >
-          Ver siguiente
-        </button>
-      </section>
-
-      {demoStage >= 2 && selectedSection === "activities" ? (
+      {selectedSection === "activities" ? (
         <NeonActivitiesSection
-          showSummary={demoStage >= 3}
+          showSummary
           loading={loading}
           clients={clients}
           clientForm={clientForm}
@@ -632,9 +588,9 @@ export function NeonHomePage() {
         />
       ) : null}
 
-      {demoStage >= 2 && selectedSection === "income" ? (
+      {selectedSection === "income" ? (
         <NeonIncomeSection
-          showSummary={demoStage >= 3}
+          showSummary
           selectedActivity={selectedActivity}
           selectedActivityExpenses={selectedActivityExpenses}
           activities={activities}
@@ -651,9 +607,9 @@ export function NeonHomePage() {
         />
       ) : null}
 
-      {demoStage >= 2 && selectedSection === "expenses" ? (
+      {selectedSection === "expenses" ? (
         <NeonExpensesSection
-          showSummary={demoStage >= 3}
+          showSummary
           selectedActivity={selectedActivity}
           selectedActivityExpenses={selectedActivityExpenses}
           expenseForm={expenseForm}
