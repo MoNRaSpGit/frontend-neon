@@ -1,6 +1,18 @@
 import { API_BASE_URL } from "../../shared/config/api";
 import { fetchWithAuth } from "../auth/auth.client";
-import { NeonAccount, NeonAccountsResponse, NeonActivitiesResponse, NeonActivity, NeonClient, NeonClientsResponse, NeonStatus } from "./neon.types";
+import {
+  NeonAccount,
+  NeonAccountsResponse,
+  NeonActivitiesResponse,
+  NeonActivity,
+  NeonCategoriesResponse,
+  NeonCategory,
+  NeonClient,
+  NeonClientsResponse,
+  NeonExpense,
+  NeonExpensesResponse,
+  NeonStatus
+} from "./neon.types";
 
 async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
@@ -34,6 +46,16 @@ export async function listNeonAccounts(): Promise<NeonAccount[]> {
   return payload.items;
 }
 
+export async function listNeonCategories(): Promise<NeonCategory[]> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/categories?movementType=expense`);
+  if (!response.ok) {
+    throw new Error("No se pudieron cargar las categorias");
+  }
+
+  const payload = await readJson<NeonCategoriesResponse>(response);
+  return payload.items;
+}
+
 export async function createNeonClient(input: { name: string; phone?: string; notes?: string }) {
   const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/clients`, {
     method: "POST",
@@ -44,6 +66,25 @@ export async function createNeonClient(input: { name: string; phone?: string; no
   const payload = await readJson<{ item?: NeonClient; message?: string }>(response);
   if (!response.ok || !payload.item) {
     throw new Error(payload.message || "No se pudo crear el cliente");
+  }
+
+  return payload.item;
+}
+
+export async function createNeonCategory(input: {
+  name: string;
+  movementType?: "income" | "expense";
+  classification?: "empresa" | "personal";
+}) {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/categories`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  const payload = await readJson<{ item?: NeonCategory; message?: string }>(response);
+  if (!response.ok || !payload.item) {
+    throw new Error(payload.message || "No se pudo crear la categoria");
   }
 
   return payload.item;
@@ -69,6 +110,16 @@ export async function getNeonActivity(activityId: number): Promise<NeonActivity>
   return payload.item;
 }
 
+export async function listNeonExpenses(): Promise<NeonExpense[]> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/expenses`);
+  if (!response.ok) {
+    throw new Error("No se pudieron cargar los gastos");
+  }
+
+  const payload = await readJson<NeonExpensesResponse>(response);
+  return payload.items;
+}
+
 export async function createNeonActivity(input: {
   activityDate: string;
   description: string;
@@ -86,6 +137,30 @@ export async function createNeonActivity(input: {
   const payload = await readJson<{ item?: NeonActivity; message?: string }>(response);
   if (!response.ok || !payload.item) {
     throw new Error(payload.message || "No se pudo crear la actividad");
+  }
+
+  return payload.item;
+}
+
+export async function createNeonExpense(input: {
+  accountId: number;
+  categoryId: number;
+  expenseDate: string;
+  totalAmount: number;
+  description?: string;
+  destinationType: "activity" | "personal" | "vehicle" | "other";
+  destinationActivityId?: number;
+  destinationLabel?: string;
+}) {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/expenses`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  const payload = await readJson<{ item?: NeonExpense; message?: string }>(response);
+  if (!response.ok || !payload.item) {
+    throw new Error(payload.message || "No se pudo registrar el gasto");
   }
 
   return payload.item;

@@ -16,7 +16,7 @@ Regla actual:
 Bloques cerrados hasta hoy:
 
 - bloque 1: shell en produccion
-- bloque 2 parcial: clientes, actividades, cuentas y `Registrar pago`
+- bloque 2 parcial: clientes, actividades, cuentas, `Registrar pago` y gasto simple
 
 Hoy ya existe:
 
@@ -33,6 +33,8 @@ Hoy ya existe:
 - cuentas base por tenant
 - registro de pagos desde actividad
 - recalculo automatico de `cobrado` y `pendiente`
+- categorias de gasto
+- registro de gasto simple
 
 ## Validacion en produccion
 
@@ -59,6 +61,8 @@ El modulo actual ya permite:
 - ver detalle de actividad
 - registrar pagos parciales desde actividad
 - ver cuentas y saldo actual
+- crear categorias de gasto
+- registrar gasto simple
 
 Todavia conserva la base del shell:
 
@@ -74,18 +78,20 @@ Endpoints principales consumidos:
 - `GET /api/v1/neon/clients`
 - `POST /api/v1/neon/clients`
 - `GET /api/v1/neon/accounts`
+- `GET /api/v1/neon/categories`
+- `POST /api/v1/neon/categories`
 - `GET /api/v1/neon/activities`
 - `GET /api/v1/neon/activities/:id`
 - `POST /api/v1/neon/activities`
 - `POST /api/v1/neon/activities/:id/payments`
+- `GET /api/v1/neon/expenses`
+- `POST /api/v1/neon/expenses`
 
 ## Lo que todavia no hace
 
 Todavia no implementa:
 
-- gastos
 - dividir gasto
-- categorias
 - centros de costo
 - reportes
 - ingresos independientes

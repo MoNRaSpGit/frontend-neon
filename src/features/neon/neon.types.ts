@@ -38,6 +38,17 @@ export type NeonAccount = {
   updatedAt: string;
 };
 
+export type NeonCategory = {
+  id: number;
+  tenantId: number;
+  name: string;
+  movementType: "income" | "expense";
+  classification: "empresa" | "personal";
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type NeonActivityPayment = {
   id: number;
   tenantId: number;
@@ -70,6 +81,26 @@ export type NeonActivity = {
   updatedAt: string;
 };
 
+export type NeonExpense = {
+  id: number;
+  tenantId: number;
+  movementDate: string;
+  accountId: number;
+  accountName: string;
+  categoryId: number;
+  categoryName: string;
+  categoryClassification: "empresa" | "personal";
+  totalAmount: number;
+  description: string | null;
+  destinationType: "activity" | "personal" | "vehicle" | "other";
+  destinationActivityId: number | null;
+  destinationActivityCode: string | null;
+  destinationActivityDescription: string | null;
+  destinationLabel: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type NeonClientsResponse = {
   items: NeonClient[];
   meta: {
@@ -87,11 +118,27 @@ export type NeonAccountsResponse = {
   };
 };
 
+export type NeonCategoriesResponse = {
+  items: NeonCategory[];
+  meta: {
+    tenantId: number;
+    count: number;
+  };
+};
+
 export type NeonActivitiesResponse = {
   items: NeonActivity[];
   meta: {
     tenantId: number;
     count: number;
     limit: number;
+  };
+};
+
+export type NeonExpensesResponse = {
+  items: NeonExpense[];
+  meta: {
+    tenantId: number;
+    count: number;
   };
 };

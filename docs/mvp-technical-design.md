@@ -307,8 +307,8 @@ No meter todavia:
 1. clientes `OK`
 2. actividades `OK`
 3. cuentas `OK`
-4. categorias
-5. gastos con o sin division
+4. categorias `OK`
+5. gastos con o sin division `OK parcial`
 6. ingresos desde actividad e independientes
 7. calculos de actividad y saldos `OK parcial`
 8. reportes base
@@ -324,12 +324,14 @@ Hoy ya esta implementado y publicado:
 - pagos parciales
 - recalculo de `cobrado` y `pendiente`
 - saldo por cuenta calculado desde movimientos
+- categorias de gasto
+- gasto simple sin division
 
 Lo proximo en la ruta MVP es:
 
-- categorias
-- gastos simples
 - `dividir gasto`
+- categorias `OK`
+- gastos simples `OK parcial`
 - centros de costo
 - reportes base
 
