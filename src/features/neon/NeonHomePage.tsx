@@ -52,6 +52,7 @@ export function NeonHomePage() {
   const [activityDetailsById, setActivityDetailsById] = useState<Record<number, NeonActivity>>({});
   const [visibleActivitySummaries, setVisibleActivitySummaries] = useState(3);
   const [visibleIncomeActivities, setVisibleIncomeActivities] = useState(3);
+  const [visibleIncomeSummaries, setVisibleIncomeSummaries] = useState(3);
   const [visibleExpenseSummaries, setVisibleExpenseSummaries] = useState(3);
   const [loading, setLoading] = useState(true);
   const [savingClient, setSavingClient] = useState(false);
@@ -437,28 +438,62 @@ export function NeonHomePage() {
     });
   }
 
+  function handleExpandIncomeSummaries() {
+    setVisibleIncomeSummaries((current) => {
+      if (incomeSummaries.length <= 3) {
+        return 3;
+      }
+
+      if (current <= 3) {
+        return Math.min(6, incomeSummaries.length);
+      }
+
+      if (current < incomeSummaries.length) {
+        return incomeSummaries.length;
+      }
+
+      return 3;
+    });
+  }
+
   const pendingActivities = activities.filter((activity) => activity.pendingAmount > 0).length;
   const collectedTotal = activities.reduce((sum, activity) => sum + activity.collectedAmount, 0);
   const accountsBalance = accounts.reduce((sum, account) => sum + account.currentBalance, 0);
   const expenseTotal = expenses.reduce((sum, expense) => sum + expense.totalAmount, 0);
-  const recentPayments = Object.values(
+  const incomeSummaries = Object.values(
     activities.reduce<Record<number, NeonActivity>>((map, activity) => {
       map[activity.id] = activity;
       return map;
     }, {})
   )
     .map((activity) => activityDetailsById[activity.id] || activity)
-    .flatMap((activity) =>
-    (activity.payments || []).map((payment) => ({
-      ...payment,
-      activityCode: formatActivityCode(activity),
-      activityDescription: activity.description
-    }))
-  );
+    .filter((activity) => activity.collectedAmount > 0)
+    .map((activity) => {
+      const latestPayment = [...(activity.payments || [])].sort((left, right) =>
+        right.createdAt.localeCompare(left.createdAt) || right.paymentDate.localeCompare(left.paymentDate)
+      )[0];
+
+      return {
+        key: `activity:${activity.id}`,
+        activityId: activity.id,
+        activityCode: formatActivityCode(activity),
+        activityDescription: activity.description,
+        clientLabel: activity.clientName || "Sin cliente",
+        collectedAmount: activity.collectedAmount,
+        pendingAmount: activity.pendingAmount,
+        latestPaymentDate: latestPayment?.paymentDate || activity.updatedAt,
+        latestPaymentCreatedAt: latestPayment?.createdAt || activity.updatedAt,
+        latestPaymentAccountName: latestPayment?.accountName || "",
+        latestPaymentDescription: latestPayment?.description || "",
+        paymentsCount: activity.payments?.length || 0
+      };
+    })
+    .sort((left, right) => right.latestPaymentCreatedAt.localeCompare(left.latestPaymentCreatedAt));
   const selectedActivityExpenses = selectedActivity ? getExpensesForActivity(selectedActivity.id) : [];
   const activitySummaries = activities.filter((activity) => activity.pendingAmount > 0);
   const visibleActivities = getVisibleSummaryItems(activitySummaries, visibleActivitySummaries);
   const visibleIncomeActivityItems = getVisibleSummaryItems(activities, visibleIncomeActivities);
+  const visibleIncomeSummaryItems = getVisibleSummaryItems(incomeSummaries, visibleIncomeSummaries);
   const movementActivities = activities.filter(
     (activity) => getExpensesForActivity(activity.id).length > 0 || activity.collectedAmount > 0
   );
@@ -608,7 +643,10 @@ export function NeonHomePage() {
           accounts={accounts}
           savingPayment={savingPayment}
           onCreatePayment={handleCreatePayment}
-          recentPayments={recentPayments}
+          incomeSummaries={visibleIncomeSummaryItems}
+          visibleIncomeSummariesCount={visibleIncomeSummaries}
+          totalIncomeSummaries={incomeSummaries.length}
+          onExpandIncomeSummaries={handleExpandIncomeSummaries}
           onOpenRecentPayment={handleOpenRecentPayment}
         />
       ) : null}

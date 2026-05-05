@@ -60,7 +60,7 @@ import {
   textareaStyle,
   wideActivityGridStyle
 } from "./neon.home.styles";
-import { type NeonAccount, type NeonActivity, type NeonActivityPayment, type NeonClient, type NeonExpense } from "./neon.types";
+import { type NeonAccount, type NeonActivity, type NeonClient, type NeonExpense } from "./neon.types";
 
 type SectionCard = {
   key: NeonSectionKey;
@@ -71,9 +71,18 @@ type SectionCard = {
   background: string;
 };
 
-type RecentPayment = NeonActivityPayment & {
+type IncomeSummary = {
+  key: string;
+  activityId: number;
   activityCode: string;
   activityDescription: string;
+  clientLabel: string;
+  collectedAmount: number;
+  pendingAmount: number;
+  latestPaymentDate: string;
+  latestPaymentAccountName: string;
+  latestPaymentDescription: string;
+  paymentsCount: number;
 };
 
 type SharedCardsProps = {
@@ -354,7 +363,10 @@ type IncomeSectionProps = {
   accounts: NeonAccount[];
   savingPayment: boolean;
   onCreatePayment: (event: FormEvent<HTMLFormElement>) => Promise<void>;
-  recentPayments: RecentPayment[];
+  incomeSummaries: IncomeSummary[];
+  visibleIncomeSummariesCount: number;
+  totalIncomeSummaries: number;
+  onExpandIncomeSummaries: () => void;
   onOpenRecentPayment: (activityId: number) => void;
 };
 
@@ -372,7 +384,10 @@ export function NeonIncomeSection({
   accounts,
   savingPayment,
   onCreatePayment,
-  recentPayments,
+  incomeSummaries,
+  visibleIncomeSummariesCount,
+  totalIncomeSummaries,
+  onExpandIncomeSummaries,
   onOpenRecentPayment
 }: IncomeSectionProps) {
   return (
@@ -516,22 +531,27 @@ export function NeonIncomeSection({
                 <h2 style={panelTitleStyle}>Ingresos registrados</h2>
                 <span style={panelCaptionStyle}>Ultimos pagos asociados a actividades.</span>
               </header>
-              {recentPayments.length > 0 ? (
+              {incomeSummaries.length > 0 ? (
                 <div style={wideActivityGridStyle}>
-                  {recentPayments.map((payment) => (
+                  {incomeSummaries.map((summary) => (
                     <button
-                      key={payment.id}
+                      key={summary.key}
                       type="button"
-                      onClick={() => onOpenRecentPayment(payment.activityId)}
+                      onClick={() => onOpenRecentPayment(summary.activityId)}
                       style={{ ...paymentRowStyle, ...expenseSummaryButtonStyle }}
                     >
                       <div style={activityRowTopStyle}>
-                        <strong style={{ ...activityCodeStyle, color: "#116149" }}>{formatMoney(payment.paidAmount)}</strong>
-                        <span style={activityStatusStyle}>{formatShortDate(payment.paymentDate)}</span>
+                        <strong style={{ ...activityCodeStyle, color: "#116149" }}>{formatMoney(summary.collectedAmount)}</strong>
+                        <span style={activityStatusStyle}>{formatShortDate(summary.latestPaymentDate)}</span>
                       </div>
-                      <strong style={activityDescriptionStyle}>{payment.activityCode}</strong>
-                      <span style={activityClientStyle}>{payment.activityDescription}</span>
-                      <span style={activityClientStyle}>{payment.accountName} · {payment.description || "Pago sin nota"}</span>
+                      <strong style={activityDescriptionStyle}>{summary.activityCode}</strong>
+                      <span style={activityClientStyle}>{summary.activityDescription}</span>
+                      <span style={activityClientStyle}>{summary.clientLabel}</span>
+                      <span style={activityClientStyle}>Pendiente {formatMoney(summary.pendingAmount)}</span>
+                      <span style={activityClientStyle}>{summary.latestPaymentAccountName || "Cuenta"} · {summary.latestPaymentDescription || "Pago sin nota"}</span>
+                      <span style={activityClientStyle}>
+                        {summary.paymentsCount === 1 ? "1 cuota registrada" : `${summary.paymentsCount} cuotas registradas`}
+                      </span>
                       <span style={{ ...activityActionStyle, color: COLORS.accountAccent }}>Ir a movimientos</span>
                     </button>
                   ))}
@@ -539,6 +559,17 @@ export function NeonIncomeSection({
               ) : (
                 <p style={emptyTextStyle}>Todavia no hay ingresos registrados.</p>
               )}
+              {totalIncomeSummaries > 3 ? (
+                <div style={summaryControlRowStyle}>
+                  <button type="button" onClick={onExpandIncomeSummaries} style={summaryControlButtonStyle}>
+                    {visibleIncomeSummariesCount <= 3
+                      ? "Ver mas"
+                      : visibleIncomeSummariesCount < totalIncomeSummaries
+                        ? "Ver todo"
+                        : "Ver menos"}
+                  </button>
+                </div>
+              ) : null}
             </article>
           </section>
 
