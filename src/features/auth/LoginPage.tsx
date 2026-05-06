@@ -12,11 +12,18 @@ const DEMO_CREDENTIALS = {
   password: "demo12345"
 } as const;
 
+const DEMO_ACCESS_ENABLED = false;
+
 export function LoginPage() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
   async function handleLogin() {
+    if (!DEMO_ACCESS_ENABLED) {
+      toast.error("Acceso pausado por ahora. Todavia no habilites entrada al demo.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
@@ -43,9 +50,19 @@ export function LoginPage() {
   return (
     <main style={pageStyle}>
       <section style={cardStyle}>
-        <button type="button" onClick={handleLogin} disabled={submitting} style={primaryButtonStyle}>
+        <button
+          type="button"
+          onClick={handleLogin}
+          disabled={submitting || !DEMO_ACCESS_ENABLED}
+          style={{
+            ...primaryButtonStyle,
+            opacity: DEMO_ACCESS_ENABLED ? 1 : 0.55,
+            cursor: DEMO_ACCESS_ENABLED ? "pointer" : "not-allowed"
+          }}
+        >
           {submitting ? "Iniciando..." : "Iniciar"}
         </button>
+        {!DEMO_ACCESS_ENABLED ? <p style={statusTextStyle}>Acceso al demo pausado temporalmente.</p> : null}
         <BuildMetaCard />
       </section>
     </main>
@@ -81,4 +98,12 @@ const primaryButtonStyle: React.CSSProperties = {
   color: "#fff",
   fontWeight: 800,
   cursor: "pointer"
+};
+
+const statusTextStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 14,
+  lineHeight: 1.5,
+  color: "#526a76",
+  textAlign: "center"
 };
