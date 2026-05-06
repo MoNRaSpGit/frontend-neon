@@ -1,68 +1,42 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import {
+  createNeonAccount,
   createNeonActivity,
-  createNeonActivityPayment,
   createNeonClient,
-  createNeonExpense,
-  getNeonActivity,
+  createNeonJournalEntry,
   listNeonAccounts,
   listNeonActivities,
-  listNeonCategories,
   listNeonClients,
-  listNeonExpenses
+  listNeonJournal
 } from "./neon.client";
-import {
-  type ActivityFormState,
-  type ClientFormState,
-  COLORS,
-  type ExpenseActivitySummary,
-  type ExpenseFormState,
-  type NeonSectionKey,
-  type PaymentFormState
-} from "./neon.home.config";
-import {
-  formatActivityCode,
-  formatMoney,
-  getExpensePreviewLabel,
-  getPreferredExpenseCategory,
-  getTodayDateInputValue,
-  getVisibleSummaryItems,
-  toTitleCase
-} from "./neon.home.helpers";
+import { getTodayDateInputValue, toTitleCase } from "./neon.home.helpers";
 import { pageStyle } from "./neon.home.styles";
-import {
-  NeonAccountsSection,
-  NeonActivitiesSection,
-  NeonExpensesSection,
-  NeonIncomeSection,
-  NeonOverviewCards
-} from "./neon.home.sections";
-import { NeonAccount, NeonActivity, NeonCategory, NeonClient, NeonExpense } from "./neon.types";
+import { NeonAccount, NeonActivity, NeonClient, NeonJournalAllocationInput, NeonJournalEntry } from "./neon.types";
+import { buildDashboardSummary } from "./neon.v2.dashboard";
+import { createEmptyJournalAllocation } from "./neon.v2.journal";
+import { NeonV2HomeSections } from "./neon.v2.sections";
+import { AccountFormState, ActivityFormState, ClientFormState, JournalFormState } from "./neon.v2.types";
 
 export function NeonHomePage() {
-  const [selectedSection, setSelectedSection] = useState<NeonSectionKey | null>(null);
-  const [clients, setClients] = useState<NeonClient[]>([]);
-  const [accounts, setAccounts] = useState<NeonAccount[]>([]);
-  const [categories, setCategories] = useState<NeonCategory[]>([]);
-  const [activities, setActivities] = useState<NeonActivity[]>([]);
-  const [expenses, setExpenses] = useState<NeonExpense[]>([]);
-  const [selectedActivity, setSelectedActivity] = useState<NeonActivity | null>(null);
-  const [expandedMovementActivityId, setExpandedMovementActivityId] = useState<number | null>(null);
-  const [activityDetailsById, setActivityDetailsById] = useState<Record<number, NeonActivity>>({});
-  const [visibleActivitySummaries, setVisibleActivitySummaries] = useState(3);
-  const [visibleIncomeActivities, setVisibleIncomeActivities] = useState(3);
-  const [visibleIncomeSummaries, setVisibleIncomeSummaries] = useState(3);
-  const [visibleExpenseSummaries, setVisibleExpenseSummaries] = useState(3);
   const [loading, setLoading] = useState(true);
   const [savingClient, setSavingClient] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
   const [savingActivity, setSavingActivity] = useState(false);
-  const [savingPayment, setSavingPayment] = useState(false);
-  const [savingExpense, setSavingExpense] = useState(false);
+  const [savingJournal, setSavingJournal] = useState(false);
+  const [clients, setClients] = useState<NeonClient[]>([]);
+  const [accounts, setAccounts] = useState<NeonAccount[]>([]);
+  const [activities, setActivities] = useState<NeonActivity[]>([]);
+  const [journalEntries, setJournalEntries] = useState<NeonJournalEntry[]>([]);
   const [clientForm, setClientForm] = useState<ClientFormState>({
     name: "",
     phone: "",
     notes: ""
+  });
+  const [accountForm, setAccountForm] = useState<AccountFormState>({
+    name: "",
+    accountType: "cash",
+    openingBalance: ""
   });
   const [activityForm, setActivityForm] = useState<ActivityFormState>({
     activityDate: getTodayDateInputValue(),
@@ -72,67 +46,36 @@ export function NeonHomePage() {
     quotedAmount: "",
     commercialStatus: "pendiente_de_facturar"
   });
-  const [paymentForm, setPaymentForm] = useState<PaymentFormState>({
+  const [journalForm, setJournalForm] = useState<JournalFormState>({
+    movementType: "expense",
+    movementDate: getTodayDateInputValue(),
     accountId: "",
-    paymentDate: getTodayDateInputValue(),
-    paidAmount: "",
-    description: ""
-  });
-  const [expenseForm, setExpenseForm] = useState<ExpenseFormState>({
-    accountId: "",
-    categoryScope: "empresa",
-    expenseDate: getTodayDateInputValue(),
     totalAmount: "",
-    description: ""
+    description: "",
+    allocations: [createEmptyJournalAllocation()]
   });
 
-  function syncFormDefaults(nextAccounts: NeonAccount[], nextCategories: NeonCategory[], nextActivity: NeonActivity | null) {
-    const defaultAccountId = nextAccounts[0] ? String(nextAccounts[0].id) : "";
-    const hasPersonalCategory = nextCategories.some((category) => category.classification === "personal");
-
-    setPaymentForm((current) => ({
-      ...current,
-      accountId: current.accountId || defaultAccountId,
-      paidAmount:
-        nextActivity && nextActivity.pendingAmount > 0 && !current.paidAmount ? String(nextActivity.pendingAmount) : current.paidAmount
-    }));
-
-    setExpenseForm((current) => ({
-      ...current,
-      accountId: current.accountId || defaultAccountId,
-      categoryScope: current.categoryScope === "personal" && !hasPersonalCategory ? "empresa" : current.categoryScope
-    }));
-  }
-
-  const loadHomeData = useCallback(async (preferredActivityId?: number) => {
+  const loadHomeData = useCallback(async () => {
     setLoading(true);
 
     try {
-      const [nextClients, nextAccounts, nextCategories, nextActivities, nextExpenses] = await Promise.all([
+      const [nextClients, nextAccounts, nextActivities, nextJournalEntries] = await Promise.all([
         listNeonClients(),
         listNeonAccounts(),
-        listNeonCategories(),
         listNeonActivities(),
-        listNeonExpenses()
+        listNeonJournal({ limit: 100 })
       ]);
 
       setClients(nextClients);
       setAccounts(nextAccounts);
-      setCategories(nextCategories);
       setActivities(nextActivities);
-      setExpenses(nextExpenses);
+      setJournalEntries(nextJournalEntries);
 
-      const activityIdToOpen = preferredActivityId ?? nextActivities[0]?.id;
-      if (activityIdToOpen) {
-        const detail = await getNeonActivity(activityIdToOpen);
-        setActivityDetailsById((current) => ({ ...current, [detail.id]: detail }));
-        setActivities((current) => current.map((activity) => (activity.id === detail.id ? { ...activity, ...detail } : activity)));
-        setSelectedActivity(detail);
-        syncFormDefaults(nextAccounts, nextCategories, detail);
-      } else {
-        setSelectedActivity(null);
-        syncFormDefaults(nextAccounts, nextCategories, null);
-      }
+      const defaultAccountId = nextAccounts[0] ? String(nextAccounts[0].id) : "";
+      setJournalForm((current) => ({
+        ...current,
+        accountId: current.accountId || defaultAccountId
+      }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo cargar Neon");
     } finally {
@@ -161,14 +104,52 @@ export function NeonHomePage() {
         notes: clientForm.notes.trim() || undefined
       });
 
+      setClients((current) => [...current, createdClient].sort((left, right) => left.name.localeCompare(right.name)));
       setClientForm({ name: "", phone: "", notes: "" });
       setActivityForm((current) => ({ ...current, clientId: String(createdClient.id) }));
       toast.success("Cliente guardado");
-      await loadHomeData();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo guardar el cliente");
     } finally {
       setSavingClient(false);
+    }
+  }
+
+  async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const name = accountForm.name.trim();
+    const openingBalance = accountForm.openingBalance ? Number(accountForm.openingBalance) : 0;
+
+    if (!name) {
+      toast.error("Falta el nombre de la cuenta");
+      return;
+    }
+
+    if (!Number.isFinite(openingBalance) || openingBalance < 0) {
+      toast.error("El saldo inicial debe ser valido");
+      return;
+    }
+
+    setSavingAccount(true);
+    try {
+      const createdAccount = await createNeonAccount({
+        name,
+        accountType: accountForm.accountType,
+        openingBalance
+      });
+
+      setAccounts((current) => [...current, createdAccount].sort((left, right) => left.id - right.id));
+      setAccountForm({ name: "", accountType: "cash", openingBalance: "" });
+      setJournalForm((current) => ({
+        ...current,
+        accountId: current.accountId || String(createdAccount.id)
+      }));
+      toast.success("Cuenta guardada");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar la cuenta");
+    } finally {
+      setSavingAccount(false);
     }
   }
 
@@ -184,7 +165,7 @@ export function NeonHomePage() {
     }
 
     if (!Number.isFinite(quotedAmount) || quotedAmount < 0) {
-      toast.error("El precio debe ser un numero valido");
+      toast.error("El monto del trabajo debe ser valido");
       return;
     }
 
@@ -199,16 +180,15 @@ export function NeonHomePage() {
         commercialStatus: activityForm.commercialStatus
       });
 
-      setActivityForm({
+      setActivities((current) => [createdActivity, ...current]);
+      setActivityForm((current) => ({
+        ...current,
         activityDate: getTodayDateInputValue(),
         description: "",
-        clientId: activityForm.clientId,
-        activityType: "neon",
         quotedAmount: "",
         commercialStatus: "pendiente_de_facturar"
-      });
+      }));
       toast.success("Actividad guardada");
-      await loadHomeData(createdActivity.id);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo guardar la actividad");
     } finally {
@@ -216,468 +196,135 @@ export function NeonHomePage() {
     }
   }
 
-  async function handleCreatePayment(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateJournalEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!selectedActivity) {
-      toast.error("Primero elegi una actividad");
-      return;
-    }
-
-    const paidAmount = Number(paymentForm.paidAmount);
-    if (!paymentForm.accountId) {
+    const totalAmount = Number(journalForm.totalAmount);
+    if (!journalForm.accountId) {
       toast.error("Falta elegir la cuenta");
-      return;
-    }
-
-    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
-      toast.error("El pago debe ser un numero valido");
-      return;
-    }
-
-    setSavingPayment(true);
-    try {
-      const updatedActivity = await createNeonActivityPayment(selectedActivity.id, {
-        accountId: Number(paymentForm.accountId),
-        paymentDate: paymentForm.paymentDate,
-        paidAmount,
-        description: paymentForm.description.trim() || undefined
-      });
-
-      setPaymentForm((current) => ({
-        ...current,
-        paidAmount: updatedActivity.pendingAmount > 0 ? String(updatedActivity.pendingAmount) : "",
-        description: ""
-      }));
-      setActivityDetailsById((current) => ({ ...current, [updatedActivity.id]: updatedActivity }));
-      setActivities((current) => current.map((activity) => (activity.id === updatedActivity.id ? { ...activity, ...updatedActivity } : activity)));
-      setSelectedActivity(updatedActivity);
-      toast.success("Pago registrado");
-      await loadHomeData(updatedActivity.id);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo registrar el pago");
-    } finally {
-      setSavingPayment(false);
-    }
-  }
-
-  async function handleCreateExpense(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const totalAmount = Number(expenseForm.totalAmount);
-    const selectedCategory = getPreferredExpenseCategory(categories, expenseForm.categoryScope);
-
-    if (!selectedActivity) {
-      toast.error("Primero elegi una actividad para cargarle gastos");
-      return;
-    }
-
-    if (!expenseForm.accountId) {
-      toast.error("Falta elegir la cuenta");
-      return;
-    }
-
-    if (!selectedCategory) {
-      toast.error("No hay una categoria disponible para ese tipo de gasto");
       return;
     }
 
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      toast.error("El gasto debe ser un numero valido");
+      toast.error("El monto debe ser valido");
       return;
     }
 
-    setSavingExpense(true);
+    const normalizedAllocations: NeonJournalAllocationInput[] = journalForm.allocations
+      .filter(
+        (
+          allocation
+        ): allocation is typeof allocation & {
+          destinationType: NeonJournalAllocationInput["destinationType"];
+        } => Boolean(allocation.destinationType && allocation.amount.trim())
+      )
+      .map((allocation) => ({
+        destinationType: allocation.destinationType,
+        destinationActivityId: allocation.destinationActivityId ? Number(allocation.destinationActivityId) : undefined,
+        destinationLabel: allocation.destinationLabel.trim() || undefined,
+        amount: Number(allocation.amount),
+        kilometers: allocation.kilometers ? Number(allocation.kilometers) : undefined,
+        liters: allocation.liters ? Number(allocation.liters) : undefined
+      }));
+
+    for (const allocation of normalizedAllocations) {
+      if (!Number.isFinite(allocation.amount) || allocation.amount <= 0) {
+        toast.error("Cada linea debe tener un monto valido");
+        return;
+      }
+
+      if (allocation.destinationType === "activity" && !allocation.destinationActivityId) {
+        toast.error("Cada linea de actividad debe elegir una actividad");
+        return;
+      }
+
+      if (
+        (allocation.destinationType === "vehicle" ||
+          allocation.destinationType === "personal" ||
+          allocation.destinationType === "other") &&
+        !allocation.destinationLabel
+      ) {
+        toast.error("Cada linea libre debe tener etiqueta");
+        return;
+      }
+    }
+
+    if (normalizedAllocations.length > 0) {
+      const allocationTotal = normalizedAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+      if (Math.round(allocationTotal * 100) !== Math.round(totalAmount * 100)) {
+        toast.error("La suma de las lineas debe coincidir con el monto total");
+        return;
+      }
+    }
+
+    setSavingJournal(true);
     try {
-      const createdExpense = await createNeonExpense({
-        accountId: Number(expenseForm.accountId),
-        categoryId: selectedCategory.id,
-        expenseDate: expenseForm.expenseDate,
+      const createdEntry = await createNeonJournalEntry({
+        movementType: journalForm.movementType,
+        movementDate: journalForm.movementDate,
+        accountId: Number(journalForm.accountId),
         totalAmount,
-        description: expenseForm.description.trim() || undefined,
-        destinationType: "activity",
-        destinationActivityId: selectedActivity.id
+        description: journalForm.description.trim() || undefined,
+        allocations: normalizedAllocations.length > 0 ? normalizedAllocations : undefined
       });
 
-      setExpenseForm((current) => ({
+      setJournalEntries((current) => [createdEntry, ...current]);
+      await loadHomeData();
+      setJournalForm((current) => ({
         ...current,
+        movementDate: getTodayDateInputValue(),
         totalAmount: "",
-        description: ""
+        description: "",
+        allocations: [createEmptyJournalAllocation()]
       }));
-      setExpenses((current) => [createdExpense, ...current]);
-      setAccounts((current) =>
-        current.map((account) =>
-          account.id === createdExpense.accountId
-            ? {
-                ...account,
-                currentBalance: Number((account.currentBalance - createdExpense.totalAmount).toFixed(2))
-              }
-            : account
-        )
-      );
-      toast.success("Gasto registrado");
+      toast.success("Movimiento guardado");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo registrar el gasto");
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el movimiento");
     } finally {
-      setSavingExpense(false);
+      setSavingJournal(false);
     }
   }
 
-  async function handleSelectActivity(activityId: number) {
-    const summaryActivity = activities.find((activity) => activity.id === activityId) || null;
-    const cachedDetail = activityDetailsById[activityId];
-    const nextSelectedActivity = cachedDetail || summaryActivity;
+  const dashboard = useMemo(() => {
+    return buildDashboardSummary(accounts, activities, journalEntries);
+  }, [accounts, activities, journalEntries]);
 
-    if (nextSelectedActivity) {
-      setSelectedActivity(nextSelectedActivity);
-      setPaymentForm((current) => ({
-        ...current,
-        paidAmount: nextSelectedActivity.pendingAmount > 0 ? String(nextSelectedActivity.pendingAmount) : "",
-        description: ""
-      }));
-    }
-
-    try {
-      const detail = await getNeonActivity(activityId);
-      setActivityDetailsById((current) => ({ ...current, [detail.id]: detail }));
-      setActivities((current) => current.map((activity) => (activity.id === detail.id ? { ...activity, ...detail } : activity)));
-      setSelectedActivity(detail);
-      setPaymentForm((current) => ({
-        ...current,
-        paidAmount: detail.pendingAmount > 0 ? String(detail.pendingAmount) : "",
-        description: ""
-      }));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se pudo cargar la actividad");
-    }
-  }
-
-  function getExpensesForActivity(activityId: number) {
-    return expenses.filter(
-      (expense) => expense.destinationType === "activity" && expense.destinationActivityId === activityId
-    );
-  }
-
-  function handleOpenActivityFlow(activityId: number) {
-    const activity = activityDetailsById[activityId] || activities.find((item) => item.id === activityId) || null;
-
-    if (activity) {
-      setSelectedActivity(activity);
-      setPaymentForm((current) => ({
-        ...current,
-        paidAmount: activity.pendingAmount > 0 ? String(activity.pendingAmount) : "",
-        description: ""
-      }));
-    }
-
-    setSelectedSection("expenses");
-    void handleSelectActivity(activityId);
-  }
-
-  function handleOpenIncomeForActivity(activity: NeonActivity) {
-    setSelectedActivity(activity);
-    setSelectedSection("income");
-    setPaymentForm((current) => ({
-      ...current,
-      paidAmount: activity.pendingAmount > 0 ? String(activity.pendingAmount) : "",
-      description: ""
-    }));
-  }
-
-  function handleExpandActivities() {
-    setVisibleActivitySummaries((current) => {
-      if (activities.length <= 3) {
-        return 3;
-      }
-
-      if (current <= 3) {
-        return Math.min(6, activities.length);
-      }
-
-      if (current < activities.length) {
-        return activities.length;
-      }
-
-      return 3;
-    });
-  }
-
-  function handleExpandExpenses() {
-    setVisibleExpenseSummaries((current) => {
-      if (expenseActivitySummaries.length <= 3) {
-        return 3;
-      }
-
-      if (current <= 3) {
-        return Math.min(6, expenseActivitySummaries.length);
-      }
-
-      if (current < expenseActivitySummaries.length) {
-        return expenseActivitySummaries.length;
-      }
-
-      return 3;
-    });
-  }
-
-  function handleExpandIncomeActivities() {
-    setVisibleIncomeActivities((current) => {
-      if (activities.length <= 3) {
-        return 3;
-      }
-
-      if (current <= 3) {
-        return Math.min(6, activities.length);
-      }
-
-      if (current < activities.length) {
-        return activities.length;
-      }
-
-      return 3;
-    });
-  }
-
-  function handleExpandIncomeSummaries() {
-    setVisibleIncomeSummaries((current) => {
-      if (incomeSummaries.length <= 3) {
-        return 3;
-      }
-
-      if (current <= 3) {
-        return Math.min(6, incomeSummaries.length);
-      }
-
-      if (current < incomeSummaries.length) {
-        return incomeSummaries.length;
-      }
-
-      return 3;
-    });
-  }
-
-  const pendingActivities = activities.filter((activity) => activity.pendingAmount > 0).length;
-  const collectedTotal = activities.reduce((sum, activity) => sum + activity.collectedAmount, 0);
-  const accountsBalance = accounts.reduce((sum, account) => sum + account.currentBalance, 0);
-  const expenseTotal = expenses.reduce((sum, expense) => sum + expense.totalAmount, 0);
-  const incomeSummaries = Object.values(
-    activities.reduce<Record<number, NeonActivity>>((map, activity) => {
-      map[activity.id] = activity;
-      return map;
-    }, {})
-  )
-    .map((activity) => activityDetailsById[activity.id] || activity)
-    .filter((activity) => activity.collectedAmount > 0)
-    .map((activity) => {
-      const latestPayment = [...(activity.payments || [])].sort((left, right) =>
-        right.createdAt.localeCompare(left.createdAt) || right.paymentDate.localeCompare(left.paymentDate)
-      )[0];
-
-      return {
-        key: `activity:${activity.id}`,
-        activityId: activity.id,
-        activityCode: formatActivityCode(activity),
-        activityDescription: activity.description,
-        clientLabel: activity.clientName || "Sin cliente",
-        collectedAmount: activity.collectedAmount,
-        pendingAmount: activity.pendingAmount,
-        latestPaymentDate: latestPayment?.paymentDate || activity.updatedAt,
-        latestPaymentCreatedAt: latestPayment?.createdAt || activity.updatedAt,
-        latestPaymentAccountName: latestPayment?.accountName || "",
-        latestPaymentDescription: latestPayment?.description || "",
-        paymentsCount: activity.payments?.length || 0
-      };
-    })
-    .sort((left, right) => right.latestPaymentCreatedAt.localeCompare(left.latestPaymentCreatedAt));
-  const selectedActivityExpenses = selectedActivity ? getExpensesForActivity(selectedActivity.id) : [];
-  const activitySummaries = activities.filter((activity) => activity.pendingAmount > 0);
-  const visibleActivities = getVisibleSummaryItems(activitySummaries, visibleActivitySummaries);
-  const visibleIncomeActivityItems = getVisibleSummaryItems(activities, visibleIncomeActivities);
-  const visibleIncomeSummaryItems = getVisibleSummaryItems(incomeSummaries, visibleIncomeSummaries);
-  const movementActivities = activities.filter(
-    (activity) => getExpensesForActivity(activity.id).length > 0 || activity.collectedAmount > 0
+  const journalAllocationTotal = useMemo(
+    () =>
+      journalForm.allocations.reduce((sum, allocation) => {
+        const amount = Number(allocation.amount);
+        return Number.isFinite(amount) ? sum + amount : sum;
+      }, 0),
+    [journalForm.allocations]
   );
-  const expenseActivitySummaries = expenses.reduce<ExpenseActivitySummary[]>((summaries, expense) => {
-    const activityId = expense.destinationType === "activity" ? expense.destinationActivityId : null;
-    const activity =
-      (activityId ? activityDetailsById[activityId] : null) ||
-      (activityId ? activities.find((item) => item.id === activityId) : null) ||
-      null;
-    const existing = activityId ? summaries.find((summary) => summary.activityId === activityId) : null;
-    const label = getExpensePreviewLabel(expense.description, expense.categoryClassification);
-
-    if (existing) {
-      existing.totalAmount += expense.totalAmount;
-      existing.expensesCount += 1;
-      existing.latestMovementDate = expense.movementDate > existing.latestMovementDate ? expense.movementDate : existing.latestMovementDate;
-      existing.expenseDescriptions.push(label);
-      return summaries;
-    }
-
-    summaries.push({
-      key: activityId ? `activity:${activityId}` : `expense:${expense.id}`,
-      activityId,
-      activityLabel:
-        activity?.description || expense.destinationActivityDescription || expense.destinationActivityCode || expense.accountName,
-      clientLabel: activity?.clientName || expense.accountName,
-      totalAmount: expense.totalAmount,
-      latestMovementDate: expense.movementDate,
-      expenseDescriptions: [label],
-      expensesCount: 1
-    });
-    return summaries;
-  }, []);
-  const visibleExpenseGroups = getVisibleSummaryItems(expenseActivitySummaries, visibleExpenseSummaries);
-
-  function handleOpenExpenseGroup(activityId: number | null) {
-    if (!activityId) {
-      return;
-    }
-
-    const activity = activityDetailsById[activityId] || activities.find((item) => item.id === activityId) || null;
-    if (activity) {
-      handleOpenIncomeForActivity(activity);
-      return;
-    }
-
-    setSelectedSection("income");
-    void handleSelectActivity(activityId);
-  }
-
-  function handleOpenRecentPayment(activityId: number) {
-    setSelectedSection("accounts");
-    setExpandedMovementActivityId(activityId);
-  }
-
-  function handleSelectSection(section: NeonSectionKey) {
-    setSelectedSection((current) => (current === section ? null : section));
-  }
-
-  const sectionCards: Array<{
-    key: NeonSectionKey;
-    label: string;
-    value: string;
-    caption: string;
-    accent: string;
-    background: string;
-  }> = [
-    {
-      key: "activities",
-      label: "Actividades",
-      value: String(activities.length),
-      caption: `${pendingActivities} con pendiente por cobrar.`,
-      accent: COLORS.activityAccent,
-      background: COLORS.activityBg
-    },
-    {
-      key: "income",
-      label: "Ingresos",
-      value: formatMoney(collectedTotal),
-      caption: "Pagos reales cargados desde actividad.",
-      accent: COLORS.incomeAccent,
-      background: COLORS.incomeBg
-    },
-    {
-      key: "expenses",
-      label: "Gastos",
-      value: formatMoney(expenseTotal),
-      caption: `${expenses.length} gasto(s) registrados.`,
-      accent: COLORS.expenseAccent,
-      background: COLORS.expenseBg
-    },
-    {
-      key: "accounts",
-      label: "Movimientos",
-      value: formatMoney(accountsBalance),
-      caption: `${movementActivities.length} actividad${movementActivities.length === 1 ? "" : "es"} con movimiento.`,
-      accent: COLORS.accountAccent,
-      background: COLORS.accountBg
-    }
-  ];
 
   return (
     <main style={pageStyle}>
-      <div style={{ paddingTop: selectedSection ? 0 : "clamp(56px, 12vh, 120px)" }}>
-        <NeonOverviewCards
-          sectionCards={sectionCards}
-          selectedSection={selectedSection}
-          onSelectSection={handleSelectSection}
-        />
-      </div>
-
-      {selectedSection === "activities" ? (
-        <NeonActivitiesSection
-          showSummary
-          loading={loading}
-          clients={clients}
-          clientForm={clientForm}
-          setClientForm={setClientForm}
-          savingClient={savingClient}
-          onCreateClient={handleCreateClient}
-          activityForm={activityForm}
-          setActivityForm={setActivityForm}
-          savingActivity={savingActivity}
-          onCreateActivity={handleCreateActivity}
-          activitySummaries={activitySummaries}
-          visibleActivities={visibleActivities}
-          selectedActivity={selectedActivity}
-          getExpensesForActivity={getExpensesForActivity}
-          onOpenActivityFlow={handleOpenActivityFlow}
-          visibleActivitySummaries={visibleActivitySummaries}
-          onExpandActivities={handleExpandActivities}
-        />
-      ) : null}
-
-      {selectedSection === "income" ? (
-        <NeonIncomeSection
-          showSummary
-          selectedActivity={selectedActivity}
-          selectedActivityExpenses={selectedActivityExpenses}
-          activities={activities}
-          visibleIncomeActivities={visibleIncomeActivityItems}
-          visibleIncomeActivitiesCount={visibleIncomeActivities}
-          onExpandIncomeActivities={handleExpandIncomeActivities}
-          onSelectActivity={handleSelectActivity}
-          paymentForm={paymentForm}
-          setPaymentForm={setPaymentForm}
-          accounts={accounts}
-          savingPayment={savingPayment}
-          onCreatePayment={handleCreatePayment}
-          incomeSummaries={visibleIncomeSummaryItems}
-          visibleIncomeSummariesCount={visibleIncomeSummaries}
-          totalIncomeSummaries={incomeSummaries.length}
-          onExpandIncomeSummaries={handleExpandIncomeSummaries}
-          onOpenRecentPayment={handleOpenRecentPayment}
-        />
-      ) : null}
-
-      {selectedSection === "expenses" ? (
-        <NeonExpensesSection
-          showSummary
-          selectedActivity={selectedActivity}
-          selectedActivityExpenses={selectedActivityExpenses}
-          expenseForm={expenseForm}
-          setExpenseForm={setExpenseForm}
-          accounts={accounts}
-          savingExpense={savingExpense}
-          onCreateExpense={handleCreateExpense}
-          expenseSummaryCount={expenseActivitySummaries.length}
-          visibleExpenseGroups={visibleExpenseGroups}
-          onOpenExpenseGroup={handleOpenExpenseGroup}
-          visibleExpenseSummaries={visibleExpenseSummaries}
-          onExpandExpenses={handleExpandExpenses}
-        />
-      ) : null}
-
-      {selectedSection === "accounts" ? (
-        <NeonAccountsSection
-          showSummary
-          movementActivities={movementActivities}
-          getExpensesForActivity={getExpensesForActivity}
-          expandedMovementActivityId={expandedMovementActivityId}
-          setExpandedMovementActivityId={setExpandedMovementActivityId}
-        />
-      ) : null}
+      <NeonV2HomeSections
+        loading={loading}
+        savingClient={savingClient}
+        savingAccount={savingAccount}
+        savingActivity={savingActivity}
+        savingJournal={savingJournal}
+        clients={clients}
+        accounts={accounts}
+        activities={activities}
+        journalEntries={journalEntries}
+        clientForm={clientForm}
+        setClientForm={setClientForm}
+        accountForm={accountForm}
+        setAccountForm={setAccountForm}
+        activityForm={activityForm}
+        setActivityForm={setActivityForm}
+        journalForm={journalForm}
+        setJournalForm={setJournalForm}
+        journalAllocationTotal={journalAllocationTotal}
+        dashboard={dashboard}
+        onCreateClient={handleCreateClient}
+        onCreateAccount={handleCreateAccount}
+        onCreateActivity={handleCreateActivity}
+        onCreateJournalEntry={handleCreateJournalEntry}
+      />
     </main>
   );
 }

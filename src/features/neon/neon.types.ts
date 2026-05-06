@@ -38,6 +38,44 @@ export type NeonAccount = {
   updatedAt: string;
 };
 
+export type NeonJournalAllocation = {
+  id: number;
+  destinationType: "activity" | "vehicle" | "personal" | "other";
+  destinationActivityId: number | null;
+  destinationActivityCode: string | null;
+  destinationActivityDescription: string | null;
+  destinationLabel: string | null;
+  amount: number;
+  metadata: Record<string, unknown> | null;
+};
+
+export type NeonJournalAllocationInput = {
+  destinationType: "activity" | "vehicle" | "personal" | "other";
+  destinationActivityId?: number;
+  destinationLabel?: string;
+  amount: number;
+  kilometers?: number;
+  liters?: number;
+};
+
+export type NeonJournalEntry = {
+  id: number;
+  tenantId: number;
+  movementType: "income" | "expense";
+  movementDate: string;
+  accountId: number;
+  accountName: string;
+  totalAmount: number;
+  description: string | null;
+  sourceType: "activity" | "independent";
+  sourceActivityId: number | null;
+  sourceActivityCode: string | null;
+  sourceActivityDescription: string | null;
+  allocations: NeonJournalAllocation[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type NeonCategory = {
   id: number;
   tenantId: number;
@@ -115,6 +153,15 @@ export type NeonAccountsResponse = {
   meta: {
     tenantId: number;
     count: number;
+  };
+};
+
+export type NeonJournalResponse = {
+  items: NeonJournalEntry[];
+  meta: {
+    tenantId: number;
+    count: number;
+    limit: number;
   };
 };
 

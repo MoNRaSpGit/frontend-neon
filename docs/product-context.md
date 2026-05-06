@@ -1,287 +1,222 @@
-# Neon - Contexto funcional
+# Neon - Contexto funcional V3
 
-Fecha de actualizacion: 2026-05-05
+Fecha de actualizacion: 2026-05-06
 
-## Objetivo general
+## Definicion final del producto
 
-Desarrollar un sistema de gestion financiera orientado a actividades y trabajos, con foco en reemplazar planillas manuales y centralizar ingresos, gastos y resultados del negocio.
+`neon` es un sistema de gestion financiera y operativa basado en:
 
-El sistema debe ser simple, evitar duplicacion de datos y permitir obtener reportes claros para tomar decisiones.
+- libro diario
+- centros de costo
+- cuentas
+- actividades
 
-## Enfoque general
+El objetivo es reemplazar Excel sin perder flexibilidad, pero agregando:
 
-El sistema es `activity-first`.
+- estructura
+- trazabilidad
+- automatizacion
+- reportes claros
 
-El usuario:
+## Regla principal del modelo
 
-- comienza creando una actividad
-- luego registra gastos para esa actividad
-- despues registra ingresos para esa actividad
-- finalmente consulta movimientos del circuito completo
+Todo movimiento nace en el libro diario.
+
+Despues se asigna a:
+
+- cuentas
+- centros de costo
+- actividades, si corresponde
+
+No es una app guiada por pantallas tipo flujo.
+
+Es una herramienta de gestion basada en un libro diario inteligente.
+
+## Libro diario
+
+El libro diario registra dos tipos de movimientos:
+
+- entradas
+- salidas
+
+### Entradas
+
+Permiten:
+
+- ingresos asociados a actividades
+- ingresos independientes
+- division en una o varias lineas
+
+### Salidas
+
+Cada salida debe contemplar en V3:
+
+- fecha
+- proveedor
+- documento
+- cantidad
+- unidad de medida
+- detalle
+- kilometraje opcional
+- moneda
+- importe total
+
+Luego se define el origen del dinero:
+
+- caja
+- banco
+- credito
+
+Si el origen es credito, el sistema debe contemplar:
+
+- tarjeta
+- fecha de vencimiento
+
+## Cuentas
+
+El sistema maneja cuentas como origen o destino del dinero.
+
+Casos base:
+
+- caja
+- bancos
+- credito
+
+Cada movimiento impacta una cuenta y recalcula su saldo.
+
+## Centros de costo
+
+Son el nucleo del sistema.
+
+Ejemplos validados:
+
+- actividades
+- vehiculos
+- casa
+- alquileres
+- uso personal
+- otros
+
+## Regla de division
+
+Un movimiento puede dividirse en multiples lineas.
+
+Cada linea puede apuntar a uno de estos destinos:
+
+- actividad
+- vehiculo
+- personal
+- otros
+
+Regla dura:
+
+- la suma de las lineas debe ser igual al total del movimiento
+- si no coincide, no se guarda
+
+## Vehiculos
+
+Cuando el centro es vehiculo, el sistema puede guardar:
+
+- kilometraje
+- litros
+
+Esto habilita reportes posteriores de:
+
+- consumo
+- gasto anual
+- costo operativo
 
 ## Actividades
 
-Cada actividad representa un trabajo.
+Las actividades siguen existiendo como un tipo de centro de costo con logica propia.
 
-Debe incluir:
+Datos funcionales:
 
-- numero correlativo automatico que reinicia cada ano
-- fecha
-- descripcion
+- numero correlativo
 - cliente
-- tipo de actividad
-- precio del trabajo definido manualmente
+- descripcion
+- importe
+- tipo
 
-Tipos iniciales:
+Tipos actuales:
 
-- neon
-- movil audiovisual
-- otros
+- NEON
+- MOVIL AUDIOVISUAL
+- OTROS
 
-## Estado financiero de la actividad
+## Estados de actividad
 
-Cada actividad debe mostrar:
-
-- precio total
-- monto cobrado
-- monto pendiente
-
-El saldo se calcula automaticamente.
-
-## Estados comerciales
-
-Una actividad puede estar en:
+Estados funcionales:
 
 - pendiente de facturar
 - facturado
 - pendiente de cobrar
 - cobrado
 
-Regla importante:
+Automatizaciones validadas:
 
-- el estado comercial es independiente del flujo real de dinero
+- si se marca `facturado`, pasa a `pendiente de cobrar`
+- si ingresan cobros asociados, baja el pendiente
+- si el pendiente llega a `0`, queda en `cobrado`
+- cuando esta cobrado, debe desaparecer de pendientes
 
-## Movimientos
+## Reportes esperados
 
-El sistema maneja:
+El valor principal del producto esta en los reportes.
 
-- ingresos
-- gastos
+Minimo esperado en V3:
 
-Cada movimiento tiene:
-
-- fecha editable
-- monto total
-- cuenta
-- descripcion
-
-## Gastos y distribucion
-
-Un gasto puede:
-
-- no dividirse y quedar 100 por ciento en un solo destino
-- dividirse en multiples partes
-
-Ejemplos:
-
-- `500` -> gastos personales
-- `500` -> `200` actividad `#1`, `300` personal
-
-Reglas obligatorias:
-
-- la suma de las partes debe ser igual al total
-- si no coincide, no deja guardar
-- el gasto se registra una sola vez
-
-## Centros de costo
-
-Destinos posibles:
-
-- actividades
-- gastos personales
-- vehiculo
-- otros
-
-## Vehiculo
-
-El vehiculo funciona como centro de costo especial.
-
-Debe permitir:
-
-- registrar gastos
-- kilometraje opcional
-- litros opcionales
-
-Con eso despues se busca calcular:
-
-- consumo
-- gasto total del vehiculo
-
-## Clientes
-
-Cada actividad puede tener un cliente.
-
-Debe permitir:
-
-- ver deuda actual en vista rapida
-- ver historial completo expandible
-
-## Cuentas
-
-El sistema maneja multiples cuentas:
-
-- caja
-- bancos
-
-Reglas:
-
-- cada movimiento impacta en una cuenta
-- el saldo se calcula automaticamente en base a movimientos
-
-## Ingresos
-
-Hay dos tipos:
-
-### 1. Desde actividad
-
-Se registran desde la actividad con accion tipo `Registrar pago`.
-
-Caracteristicas:
-
-- pueden ser multiples pagos parciales
-- generan ingreso vinculado a la actividad
-- impactan en la cuenta elegida
-
-El sistema calcula automaticamente:
-
-- total cobrado
-- pendiente
-
-### 2. Independientes
-
-Ingresos no asociados a una actividad.
-
-Ejemplo:
-
-- `gane 50 en la loteria`
-
-## Reportes
-
-Los reportes son el valor principal del sistema.
-
-Debe permitir:
-
-- ingresos totales por periodo
-- gastos totales por periodo
-- balance general
-- resultado por actividad
-- gastos por categoria
-- ingresos por tipo
-- deuda de clientes
 - saldos por cuenta
-- gastos del vehiculo
+- tarjetas y vencimientos de credito
+- gastos por centro
+- ingresos por centro
+- pendientes de facturar
+- pendientes de cobrar
+- resultados por actividad
+- total ingresos
+- total gastos
 
-Reglas iniciales:
+## Fechas, moneda y borrado
 
-- periodo por defecto: mes actual
-- orden principal: por fecha
+Reglas funcionales:
 
-## UX e interfaz
-
-La interfaz debe ser simple y visual.
-
-Pantalla principal tipo tarjetas:
-
-- Actividades
-- Gastos
-- Ingresos
-- Movimientos
-
-Comportamiento real actual:
-
-- al entrar se ven solo las 4 tarjetas compactas
-- cada tarjeta se despliega al hacer click
-- los resumenes internos conectan el flujo entre modulos
-
-Ejemplos:
-
-- Actividades -> pendientes
-- Gastos -> total del mes
-- Ingresos -> total del mes
-
-## Flujo principal
-
-- crear actividad
-- registrar gasto simple para esa actividad
-- registrar ingresos parciales para esa actividad
-- ver movimientos resumidos
-- consultar el resultado operativo basico
-
-## Edicion y borrado
-
-Se puede editar todo.
-
-El borrado es logico:
-
-- no aparece en la vista normal
-- queda guardado internamente
-
-### Reglas de borrado
-
-Si se borra un gasto:
-
-- se recalculan automaticamente actividad, reportes y saldos
-
-Si se cancela o elimina una actividad:
-
-- los gastos no se eliminan
-- quedan asociados como `Actividad cancelada`
-
-## Categorias
-
-En el flujo visible actual, el usuario elige solo entre:
-
-- `Empresa`
-- `Personal`
-
-La UI ya no expone una grilla completa de categorias en esta etapa.
-
-## Fechas
-
-Todos los registros tienen fecha editable.
-
-Reglas:
-
+- todos los registros tienen fecha editable
 - se pueden cargar datos atrasados
-- la visualizacion se ordena por fecha
+- el borrado es logico
+- la moneda base es pesos
+- se debe soportar dolares cuando la cuenta lo requiera
 
-## Moneda
+## Donde estamos hoy
 
-El sistema trabaja en pesos.
+Al dia de hoy ya existe una base tecnica funcional sobre el modelo nuevo:
 
-## Resumen final
+- cuentas por tenant
+- libro diario con ingresos y gastos
+- asignacion simple o dividida por multiples lineas
+- actividades como centro de costo
+- recalculo de cobrado y pendiente desde ingresos del libro diario asignados a actividad
+- dashboard simple con saldos, ingresos, gastos, falta cobrar y falta facturar
+- reportes base de gastos por centro e ingresos por actividad
 
-Este no es un sistema contable tradicional.
+## Que todavia falta para cerrar V3
 
-Es un sistema de control financiero orientado a actividades donde el usuario:
+Pendientes mas importantes:
 
-- registra trabajos
-- registra ingresos y gastos
-- divide gastos en multiples destinos
-- obtiene reportes automaticos
+- enriquecer los datos de salidas: proveedor, documento, cantidad, unidad, moneda
+- agregar cuenta tipo credito con comportamiento real
+- modelar tarjetas y vencimientos
+- soportar deuda pendiente y su reporte
+- ampliar catalogo de centros de costo visibles en UI
+- filtros y reportes por fecha
+- edicion y borrado logico de movimientos
+- resultados por actividad mas completos
 
-Foco principal:
+## Resumen
 
-- simplicidad
-- evitar duplicacion
-- claridad total del negocio
+`neon` queda definido en V3 como:
 
-## Estado
-
-Contexto actualizado al cierre del slice actual.
-
-Listo para continuar con:
-
-- dividir gasto
-- centros de costo
-- reportes base
+- un libro diario inteligente
+- con cuentas
+- con centros de costo
+- con actividades integradas
+- con foco en control operativo y financiero real

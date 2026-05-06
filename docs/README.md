@@ -1,149 +1,131 @@
 # Neon Docs
 
-Fecha de actualizacion: 2026-05-05
+Fecha de actualizacion: 2026-05-06
 
-Esta carpeta guarda la documentacion puntual de `frontend-neon`.
+Esta carpeta guarda la documentacion funcional y operativa de `frontend-neon`.
 
-## Regla actual
+## Regla documental
 
-- la estructura general del SaaS vive en `backend/docs`
+- la arquitectura general del SaaS vive en `backend/docs`
 - el comportamiento real del frontend `neon` se documenta aca
 
-## Estado actual
+## Estado actual del frontend
 
-`neon` ya tiene un slice funcional real, publicado y usable para demo operativa.
+`frontend-neon` ya dejo atras el flujo viejo por tarjetas `Actividades -> Gastos -> Ingresos -> Movimientos`.
 
-Bloques cerrados hasta hoy:
+Hoy la home esta alineada al modelo nuevo V3 y se organiza alrededor de:
 
-- login simplificado con acceso directo por boton
-- home por tarjetas principales
-- flujo base `Actividades -> Gastos -> Ingresos -> Movimientos`
-- gastos simples asociados a actividad
-- pagos parciales asociados a actividad
-- resumenes navegables entre bloques
+- dashboard
+- cuentas
+- libro diario
+- actividades
+- reportes base
 
-## Lo que hoy existe en produccion
+## Lo que hoy existe en la UI
 
-- frontend publicado
-- auth SaaS real
-- login reducido a un solo boton `Iniciar`
-- ruta protegida
-- 4 tarjetas principales:
-  - `Actividades`
-  - `Ingresos`
-  - `Gastos`
-  - `Movimientos`
-- al entrar, las tarjetas aparecen compactas y sin contenido desplegado
-- cada tarjeta despliega su modulo completo al hacer click
-
-## Flujo actual de interfaz
-
-### 1. Actividades
-
-Permite:
-
-- agregar cliente
-- crear actividad
-- ver resumen de actividades pendientes
-
-Comportamiento:
-
-- los nombres de cliente se normalizan en mayuscula por palabra
-- los resumenes muestran hasta 3 items por defecto
-- si una actividad tiene gastos, la tarjeta muestra hasta 2 etiquetas y luego `...`
-- click en un resumen de actividad lleva a `Gastos`
-
-### 2. Gastos
-
-Permite:
-
-- cargar gasto simple para la actividad seleccionada
-- elegir solo entre `Empresa` o `Personal`
-- impactar saldo de cuenta automaticamente
-
-Comportamiento:
-
-- la actividad queda cargada automaticamente al entrar desde un resumen
-- el panel del lobby no navega
-- los resumenes de gastos se agrupan por actividad
-- cada tarjeta muestra hasta 3 gastos y luego `...`
-- click en un resumen de gasto lleva a `Ingresos`
-
-### 3. Ingresos
-
-Permite:
-
-- elegir actividad
-- registrar uno o varios pagos parciales
-
-Comportamiento:
-
-- `Ingresos registrados` se agrupa por actividad, no por pago individual
-- una actividad con varias cuotas mantiene una sola tarjeta acumulada
-- la tarjeta muestra solo:
-  - cobrado
+- login simplificado con boton `Iniciar`
+- ruta protegida del modulo `neon`
+- dashboard base con:
+  - saldo total
+  - ingresos
+  - gastos
+  - falta cobrar
+  - falta facturar
+- seccion de cuentas para crear y listar cuentas
+- seccion de libro diario para registrar:
+  - ingreso o gasto
   - fecha
+  - cuenta
+  - monto total
+  - descripcion
+  - multiples lineas de asignacion
+- seccion de actividades para:
+  - crear cliente
+  - crear actividad
+  - ver cliente, cobrado y pendiente
+- reportes base para:
+  - ultimos movimientos
+  - actividades
+  - gastos por centro
+  - ingresos por actividad
+
+## Estado real implementado hasta hoy
+
+Ya esta implementado y validado:
+
+- cuentas base y cuentas nuevas
+- libro diario simple
+- division por multiples lineas
+- asignacion a:
   - actividad
-  - pendiente
-- click en un ingreso registrado lleva a `Movimientos`
-- se muestran 3 resumenes por defecto con `Ver mas / Ver todo / Ver menos`
+  - vehiculo
+  - personal
+  - otros
+- kilometraje y litros en lineas de vehiculo
+- actividades integradas al nuevo modelo
+- cobrado y pendiente calculados desde ingresos del journal
+- estados comerciales derivados para actividades
 
-### 4. Movimientos
+## Lo que todavia no esta cerrado en frontend
 
-Permite:
+Pendientes principales:
 
-- ver un resumen corto por actividad con movimiento
-- abrir detalle
+- captura completa de datos V3 para salidas:
+  - proveedor
+  - documento
+  - cantidad
+  - unidad
+  - moneda
+- soporte real de credito en la UI
+- tarjetas y vencimientos
+- filtros por fecha
+- edicion de movimientos
+- borrado logico visible en UX
+- vistas mas completas de reportes
 
-Detalle mostrado:
-
-- actividad
-- cobrado
-- gastado
-- pendiente
-
-## Endpoints principales consumidos
+## Endpoints principales que consume hoy
 
 - `GET /api/v1/neon/status`
 - `GET /api/v1/neon/clients`
 - `POST /api/v1/neon/clients`
+- `PATCH /api/v1/neon/clients/:id`
 - `GET /api/v1/neon/accounts`
-- `GET /api/v1/neon/categories`
-- `POST /api/v1/neon/categories`
+- `POST /api/v1/neon/accounts`
 - `GET /api/v1/neon/activities`
 - `GET /api/v1/neon/activities/:id`
 - `POST /api/v1/neon/activities`
+- `PATCH /api/v1/neon/activities/:id`
+- `GET /api/v1/neon/journal`
+- `POST /api/v1/neon/journal`
+
+Compatibilidad heredada aun presente:
+
 - `POST /api/v1/neon/activities/:id/payments`
+- `GET /api/v1/neon/categories`
+- `POST /api/v1/neon/categories`
 - `GET /api/v1/neon/expenses`
 - `POST /api/v1/neon/expenses`
 
-## Alcance real de esta etapa
+## Donde quedamos hoy
 
-Ya permite:
+El producto ya tiene una base util para demo real del modelo nuevo:
 
-- crear clientes
-- crear actividades
-- cargar varios gastos a una actividad
-- cargar varios ingresos parciales a una actividad
-- ver resuemenes agrupados por actividad
-- navegar entre bloques desde los resumenes
-- ver movimientos finales por actividad
+- se puede crear cuenta
+- se puede crear cliente
+- se puede crear actividad
+- se puede registrar ingreso o gasto
+- se puede dividir el movimiento por centros
+- se puede consultar saldos, pendientes y reportes simples
 
-Todavia no implementa:
+## Proximos pasos recomendados
 
-- dividir gasto
-- centros de costo reales
-- reportes
-- ingresos independientes
-- edicion y borrado funcionales
-
-## Credenciales demo
-
-- email interno: `neon.demo@saaspro.com`
-- clave interna: `demo12345`
-- en UI ya no se muestran campos: el acceso entra por boton `Iniciar`
+1. completar el modelo V3 de salidas
+2. incorporar credito, tarjetas y vencimientos
+3. limpiar UX y endpoints heredados que ya no son el nucleo
+4. agregar filtros y reportes por periodo
+5. habilitar edicion y borrado logico
 
 ## Siguiente lectura
 
 - [Contexto funcional del producto](./product-context.md)
-- [Diseno tecnico MVP](./mvp-technical-design.md)
+- [Diseno tecnico MVP / V3](./mvp-technical-design.md)

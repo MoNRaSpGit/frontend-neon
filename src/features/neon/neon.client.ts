@@ -11,6 +11,9 @@ import {
   NeonClientsResponse,
   NeonExpense,
   NeonExpensesResponse,
+  NeonJournalAllocationInput,
+  NeonJournalEntry,
+  NeonJournalResponse,
   NeonStatus
 } from "./neon.types";
 
@@ -44,6 +47,25 @@ export async function listNeonAccounts(): Promise<NeonAccount[]> {
 
   const payload = await readJson<NeonAccountsResponse>(response);
   return payload.items;
+}
+
+export async function createNeonAccount(input: {
+  name: string;
+  accountType: "cash" | "bank";
+  openingBalance?: number;
+}) {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/accounts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  const payload = await readJson<{ item?: NeonAccount; message?: string }>(response);
+  if (!response.ok || !payload.item) {
+    throw new Error(payload.message || "No se pudo crear la cuenta");
+  }
+
+  return payload.item;
 }
 
 export async function listNeonCategories(): Promise<NeonCategory[]> {
@@ -118,6 +140,62 @@ export async function listNeonExpenses(): Promise<NeonExpense[]> {
 
   const payload = await readJson<NeonExpensesResponse>(response);
   return payload.items;
+}
+
+export async function listNeonJournal(params?: {
+  limit?: number;
+  movementType?: "income" | "expense";
+  accountId?: number;
+  costCenterType?: "activity" | "vehicle" | "personal" | "other";
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}): Promise<NeonJournalEntry[]> {
+  const searchParams = new URLSearchParams();
+
+  if (params?.limit) searchParams.set("limit", String(params.limit));
+  if (params?.movementType) searchParams.set("movementType", params.movementType);
+  if (params?.accountId) searchParams.set("accountId", String(params.accountId));
+  if (params?.costCenterType) searchParams.set("costCenterType", params.costCenterType);
+  if (params?.dateFrom) searchParams.set("dateFrom", params.dateFrom);
+  if (params?.dateTo) searchParams.set("dateTo", params.dateTo);
+  if (params?.search?.trim()) searchParams.set("search", params.search.trim());
+
+  const query = searchParams.toString();
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/journal${query ? `?${query}` : ""}`);
+  if (!response.ok) {
+    throw new Error("No se pudo cargar el libro diario");
+  }
+
+  const payload = await readJson<NeonJournalResponse>(response);
+  return payload.items;
+}
+
+export async function createNeonJournalEntry(input: {
+  movementType: "income" | "expense";
+  movementDate: string;
+  accountId: number;
+  totalAmount: number;
+  description?: string;
+  costCenterType?: "activity" | "vehicle" | "personal" | "other";
+  destinationActivityId?: number;
+  destinationLabel?: string;
+  kilometers?: number;
+  liters?: number;
+  allocations?: NeonJournalAllocationInput[];
+}) {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/journal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input)
+  });
+
+  const payload = await readJson<{ item?: NeonJournalEntry; message?: string }>(response);
+  if (!response.ok || !payload.item) {
+    throw new Error(payload.message || "No se pudo registrar el movimiento");
+  }
+
+  return payload.item;
 }
 
 export async function createNeonActivity(input: {

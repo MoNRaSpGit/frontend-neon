@@ -1,86 +1,81 @@
-# Neon - Diseno tecnico MVP
+# Neon - Diseno tecnico MVP / V3
 
-Fecha de actualizacion: 2026-05-05
+Fecha de actualizacion: 2026-05-06
 
 ## Objetivo
 
-Bajar el contexto funcional cerrado a una primera implementacion MVP clara, corta y ordenada.
+Bajar el contexto funcional V3 a un corte tecnico claro:
 
-## Pantallas MVP
+- que ya esta implementado
+- que sigue faltando
+- en que orden conviene seguir
 
-No agregar mas por ahora.
+## Corte tecnico actual
 
-Pantallas iniciales:
+Hoy el nucleo nuevo ya existe.
 
-- Dashboard
-- Crear actividad
-- Ver actividad
-- Registrar movimiento
-- Reportes
+Bloques implementados:
 
-## Flujo MVP principal
+1. cuentas
+2. libro diario simple
+3. centros de costo simples
+4. division por multiples lineas
+5. actividades integradas al nuevo modelo
+6. cobrado y pendiente calculados desde journal
+7. dashboard simple
 
-### Flujo 1. Crear actividad
+## Pantallas reales actuales
 
-- crear actividad
-- definir precio
-- asociar cliente
-- dejarla visible en dashboard y detalle
+Hoy `frontend-neon` expone:
 
-### Flujo 2. Registrar gasto
+- dashboard
+- cuentas
+- libro diario
+- actividades
+- reportes base
 
-- poner monto
-- elegir cuenta
-- escribir descripcion
-- elegir categoria
-- decidir si divide o no divide
-- guardar
+No se toma como vigente el flujo viejo por tarjetas.
 
-Si divide:
+## Entidades vigentes
 
-- cargar partes
-- validar suma exacta contra el total
+### 1. clients
 
-### Flujo 3. Registrar ingreso
+Campos activos:
 
-Dos caminos:
+- id
+- tenant_id
+- name
+- phone nullable
+- notes nullable
+- deleted_at nullable
+- created_at
+- updated_at
 
-- desde actividad con `Registrar pago`
-- ingreso independiente
+### 2. accounts
 
-En ambos casos:
+Campos activos:
 
-- elegir cuenta
-- ingresar monto
-- fecha editable
-- descripcion opcional
-- guardar
+- id
+- tenant_id
+- name
+- account_type
+- opening_balance
+- deleted_at nullable
+- created_at
+- updated_at
 
-### Flujo 4. Consultar actividad
+Tipos usados hoy:
 
-Desde la actividad se debe ver:
+- cash
+- bank
 
-- precio total
-- cobrado
-- pendiente
-- gastos asociados
-- resultado final
+Pendiente V3:
 
-### Flujo 5. Consultar reportes
+- credito
 
-Vista inicial del MVP:
+### 3. activities
 
-- ingresos del periodo
-- gastos del periodo
-- balance
-- resultado por actividad
-- gastos por categoria
-
-## Entidades MVP
-
-### 1. activities
-
-Campos minimos:
+Campos activos:
 
 - id
 - tenant_id
@@ -98,64 +93,12 @@ Campos minimos:
 
 Notas:
 
-- `activity_number` reinicia por ano
-- `quoted_amount` es el precio del trabajo
-- `commercial_status` no reemplaza al cobro real
+- `facturado` se normaliza a `pendiente_de_cobrar`
+- `cobrado` se deriva desde ingresos del journal
 
-### 2. clients
+### 4. movements
 
-Campos minimos:
-
-- id
-- tenant_id
-- name
-- phone nullable
-- notes nullable
-- deleted_at nullable
-- created_at
-- updated_at
-
-### 3. accounts
-
-Campos minimos:
-
-- id
-- tenant_id
-- name
-- account_type
-- opening_balance
-- deleted_at nullable
-- created_at
-- updated_at
-
-Tipos iniciales:
-
-- cash
-- bank
-
-### 4. categories
-
-Campos minimos:
-
-- id
-- tenant_id
-- name
-- movement_type
-- classification
-- is_system
-- deleted_at nullable
-- created_at
-- updated_at
-
-Reglas:
-
-- `movement_type`: ingreso o egreso
-- `classification`: empresa o personal
-- categorias iniciales del sistema + categorias creadas por usuario
-
-### 5. movements
-
-Campos minimos:
+Campos activos:
 
 - id
 - tenant_id
@@ -164,22 +107,29 @@ Campos minimos:
 - account_id
 - total_amount
 - description
-- category_id
 - source_type
 - source_activity_id nullable
 - deleted_at nullable
 - created_at
 - updated_at
 
-Reglas:
+Uso actual:
 
-- `movement_type`: ingreso o egreso
-- `source_type`: activity o independent
-- un movimiento se registra una sola vez
+- registrar ingresos y gastos
+- impactar saldos de cuenta
 
-### 6. movement_allocations
+Pendiente V3 en esta entidad:
 
-Campos minimos:
+- proveedor
+- documento
+- cantidad
+- unidad de medida
+- moneda
+- datos de credito
+
+### 5. movement_allocations
+
+Campos activos:
 
 - id
 - tenant_id
@@ -192,157 +142,101 @@ Campos minimos:
 - created_at
 - updated_at
 
-Destinos iniciales:
+Destinos activos:
 
 - activity
-- personal
 - vehicle
+- personal
 - other
 
-Regla:
+Regla activa:
 
-- la suma de allocations debe ser igual al total del movimiento
+- suma de allocations = total_amount
 
-### 7. activity_payments
+### 6. vehicle metadata
 
-Campos minimos:
+Hoy los datos de vehiculo se guardan dentro de `metadata_json` de la allocation.
 
-- id
-- tenant_id
-- activity_id
-- movement_id
-- paid_amount
-- created_at
+Campos activos:
 
-Uso:
-
-- enlazar pagos reales contra actividades
-- soportar pagos parciales
-
-### 8. vehicle_entries
-
-Campos minimos:
-
-- id
-- tenant_id
-- movement_allocation_id
 - kilometers nullable
 - liters nullable
-- created_at
-- updated_at
 
-Uso:
-
-- guardar datos extra de gastos de vehiculo
-
-## Relaciones MVP
-
-- una actividad puede tener un cliente
-- una actividad puede tener muchos pagos
-- una actividad puede recibir muchas allocations de gastos
-- un movimiento pertenece a una cuenta
-- un movimiento pertenece a una categoria
-- un movimiento puede tener muchas allocations
-- un pago de actividad referencia un movimiento de ingreso
-- una allocation de vehiculo puede tener detalle de kilometraje y litros
-
-## Reglas de calculo
-
-### Actividad
-
-Para cada actividad:
-
-- `precio total` = `quoted_amount`
-- `monto cobrado` = suma de pagos asociados
-- `monto pendiente` = `quoted_amount - monto cobrado`
-- `resultado` = `monto cobrado` o `quoted_amount` segun reporte elegido menos gastos asignados
-
-Nota MVP:
-
-- para operacion diaria, mostrar `cobrado` y `pendiente`
-- para rentabilidad, mostrar gastos asignados y resultado
+## Reglas de calculo vigentes
 
 ### Cuenta
 
-Para cada cuenta:
+- saldo = saldo inicial + ingresos - gastos
 
-- saldo = saldo inicial + ingresos - egresos
+### Actividad
+
+- total = quoted_amount
+- cobrado = suma de lineas de ingreso asignadas a esa actividad
+- pendiente = quoted_amount - cobrado
+- estado:
+  - `pendiente_de_facturar` si todavia no fue facturada
+  - `pendiente_de_cobrar` cuando entra a circuito comercial
+  - `cobrado` cuando pendiente llega a cero
 
 ### Movimiento dividido
 
-Validacion dura:
+- validacion dura de suma exacta
+- si no coincide, no se guarda
 
-- suma de `movement_allocations.amount` = `movements.total_amount`
+## Estado implementado por modulo
 
-Si no coincide:
+### Backend
 
-- no se guarda
+Ya existe:
 
-## Lenguaje de UX
+- `GET /api/v1/neon/accounts`
+- `POST /api/v1/neon/accounts`
+- `GET /api/v1/neon/clients`
+- `POST /api/v1/neon/clients`
+- `PATCH /api/v1/neon/clients/:id`
+- `GET /api/v1/neon/activities`
+- `GET /api/v1/neon/activities/:id`
+- `POST /api/v1/neon/activities`
+- `PATCH /api/v1/neon/activities/:id`
+- `GET /api/v1/neon/journal`
+- `POST /api/v1/neon/journal`
 
-No usar como lenguaje principal:
+Compatibilidad heredada aun presente:
 
-- movimiento financiero
-- distribucion
+- `POST /api/v1/neon/activities/:id/payments`
+- `GET /api/v1/neon/categories`
+- `POST /api/v1/neon/categories`
+- `GET /api/v1/neon/expenses`
+- `POST /api/v1/neon/expenses`
 
-Usar:
+### Frontend
 
-- ingreso
-- gasto
-- dividir gasto
-- registrar pago
+Ya existe:
 
-## Alcance fuera del MVP
+- formularios de cuentas
+- formularios de clientes
+- formularios de actividades
+- formulario de journal con multiples lineas
+- resumenes base del dashboard
+- reportes simples
 
-No meter todavia:
+## Proximos pasos tecnicos
 
-- transferencias entre cuentas
-- multiusuario complejo
-- multiempresa compleja
-- contabilidad formal
-- automatizaciones avanzadas
+Orden recomendado desde hoy:
 
-## Orden recomendado de implementacion
+1. enriquecer `movements` para salidas V3
+2. agregar soporte de `credito`
+3. modelar tarjetas y vencimientos
+4. crear reporte de deuda pendiente
+5. limpiar endpoints y UI heredados
+6. filtros por fecha y periodo
+7. edicion y borrado logico visibles
 
-1. clientes `OK`
-2. actividades `OK`
-3. cuentas `OK`
-4. categorias `OK`
-5. gastos con o sin division `OK parcial`
-6. ingresos desde actividad e independientes
-7. calculos de actividad y saldos `OK parcial`
-8. reportes base
+## Resultado esperado del siguiente bloque
 
-## Corte actual implementado
+Al cerrar el siguiente bloque, el usuario ya deberia poder:
 
-Hoy ya esta implementado y publicado:
-
-- clientes
-- actividades
-- cuentas base (`Caja`, `Banco`)
-- pagos desde actividad
-- pagos parciales
-- recalculo de `cobrado` y `pendiente`
-- saldo por cuenta calculado desde movimientos
-- categorias de gasto
-- gasto simple sin division
-
-Lo proximo en la ruta MVP es:
-
-- `dividir gasto`
-- categorias `OK`
-- gastos simples `OK parcial`
-- centros de costo
-- reportes base
-
-## Resultado esperado del MVP
-
-Al cerrar el MVP, el usuario ya debe poder:
-
-- crear actividades
-- registrar gastos
-- dividir gastos
-- registrar pagos parciales
-- ver pendiente y cobrado por actividad
-- ver saldo por cuenta
-- ver reportes base sin usar planillas externas
+- registrar salidas con mas datos operativos
+- registrar gastos a credito
+- saber cuanto debe y cuando vence
+- ver reportes basicos mas cercanos a la operativa real del cliente
