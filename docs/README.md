@@ -15,8 +15,8 @@ Esta carpeta guarda la documentacion funcional y operativa de `frontend-neon`.
 
 Hoy la home del piloto se organiza en cuatro vistas:
 
-- `Resumen`
 - `Diario`
+- `Resumen`
 - `Actividades`
 - `Reportes`
 
@@ -35,10 +35,11 @@ Vista simple para abrir el modulo sin perder foco.
 
 Hoy muestra:
 
-- panorama general
-- alertas y pendientes
 - saldo total
-- seguimiento de cobros, facturacion y deuda
+- movimiento acumulado
+- pendiente de facturar
+- pendiente de cobrar
+- deuda pendiente
 
 ### Diario
 
@@ -55,10 +56,8 @@ Permite registrar:
 
 Y para salidas tambien:
 
+- detalle
 - proveedor
-- documento
-- cantidad
-- unidad
 - moneda
 - kilometraje y litros cuando aplica
 
@@ -175,6 +174,25 @@ Para que el cliente se vea reflejado rapido, la UI ya sugiere:
   - `Herramientas`
   - `OTROS1`
 
+## Dataset demo cargado
+
+El tenant demo quedo con una base corta para mostrar el sistema sin ruido.
+
+Hoy incluye:
+
+- `2` gastos
+- `2` ingresos
+- `3` actividades
+- casos visibles de:
+  - vehiculo
+  - personal
+  - alquiler
+  - actividades
+
+Script de reseteo:
+
+- `backend/scripts/reset-neon-demo-pilot-data.js`
+
 ## Lo que todavia no se cierra a proposito
 
 Este corte se mantiene en estado de piloto.
@@ -196,6 +214,7 @@ El producto ya tiene una base util para prueba real con cliente:
 - puede registrar credito y vencimientos
 - puede separar alquileres de actividades
 - puede mirar cuentas, deuda y reportes por centro
+- abre directamente en `Diario`, que hoy es la entrada principal pedida por cliente
 
 ## Siguiente paso recomendado
 

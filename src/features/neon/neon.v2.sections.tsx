@@ -123,8 +123,8 @@ function getActivityStatusLabel(status: ActivityFormState["commercialStatus"] | 
 }
 
 const WORKSPACE_VIEWS: Array<{ value: NeonWorkspaceView; label: string; description: string }> = [
-  { value: "overview", label: "Resumen", description: "Metricas, deuda y panorama general" },
   { value: "journal", label: "Diario", description: "Cuentas y carga de movimientos" },
+  { value: "overview", label: "Resumen", description: "Metricas, deuda y panorama general" },
   { value: "activities", label: "Actividades", description: "Clientes y trabajos" },
   { value: "reports", label: "Reportes", description: "Lectura financiera y operativa" }
 ];
@@ -197,10 +197,6 @@ function matchesReportPeriod(entry: NeonJournalEntry, filter: ReportPeriodFilter
   }
 
   return true;
-}
-
-function formatPercent(value: number) {
-  return `${value.toFixed(1)}%`;
 }
 
 export function NeonV2HomeSections({
@@ -334,8 +330,8 @@ export function NeonV2HomeSections({
       <section style={activeView === "overview" ? contentGridStyle : { display: "none" }}>
         <article style={{ ...panelStyle, gap: 20 }}>
           <header style={panelHeaderStyle}>
-            <h2 style={panelTitleStyle}>Panorama general</h2>
-            <span style={panelCaptionStyle}>Una vista mas limpia de caja, movimiento y resultado.</span>
+            <h2 style={panelTitleStyle}>Resumen</h2>
+            <span style={panelCaptionStyle}>Saldo y alertas principales para arrancar rapido.</span>
           </header>
 
           <div
@@ -365,36 +361,6 @@ export function NeonV2HomeSections({
             </div>
             <div style={listItemStyle}>
               <div>
-                <strong style={listItemTitleStyle}>Periodo filtrado</strong>
-                <span style={listItemMetaStyle}>
-                  {filteredReportEntries.filter((entry) => entry.movementType === "income").length} ingreso(s) / {filteredReportEntries.filter((entry) => entry.movementType === "expense").length} gasto(s)
-                </span>
-              </div>
-              <strong style={{ ...listItemMoneyStyle, color: getResultTone(dashboard.reportNetFlowAmount) }}>
-                {formatMoney(dashboard.reportNetFlowAmount)}
-              </strong>
-            </div>
-            <div style={listItemStyle}>
-              <div>
-                <strong style={listItemTitleStyle}>Resultado por actividad</strong>
-                <span style={listItemMetaStyle}>{dashboard.profitableActivitiesCount} con margen / {dashboard.lossActivitiesCount} en rojo</span>
-              </div>
-              <strong style={{ ...listItemMoneyStyle, color: getResultTone(dashboard.reportActivityNetAmount) }}>
-                {formatMoney(dashboard.reportActivityNetAmount)}
-              </strong>
-            </div>
-          </div>
-        </article>
-
-        <article style={panelStyle}>
-          <header style={panelHeaderStyle}>
-            <h2 style={panelTitleStyle}>Alertas y pendientes</h2>
-            <span style={panelCaptionStyle}>Lo que hoy requiere seguimiento comercial o financiero.</span>
-          </header>
-
-          <div style={listStyle}>
-            <div style={listItemStyle}>
-              <div>
                 <strong style={listItemTitleStyle}>Pendiente de facturar</strong>
                 <span style={listItemMetaStyle}>{dashboard.pendingBillingCount} actividad(es) todavia sin factura</span>
               </div>
@@ -413,13 +379,6 @@ export function NeonV2HomeSections({
                 <span style={listItemMetaStyle}>{dashboard.pendingDebtCount} movimiento(s) a credito / vencido {formatMoney(dashboard.overdueDebtAmount)}</span>
               </div>
               <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(dashboard.pendingDebtAmount)}</strong>
-            </div>
-            <div style={listItemStyle}>
-              <div>
-                <strong style={listItemTitleStyle}>Estado comercial</strong>
-                <span style={listItemMetaStyle}>{dashboard.activitiesCount} actividad(es) / {formatPercent(dashboard.commercialCollectionRate)} del cotizado cobrado</span>
-              </div>
-              <strong style={{ ...listItemMoneyStyle, color: COLORS.incomeAccent }}>{formatMoney(dashboard.commercialCollectedAmount)}</strong>
             </div>
           </div>
         </article>
@@ -570,22 +529,24 @@ export function NeonV2HomeSections({
                 placeholder="0"
               />
             </label>
-            <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
-              <span>1. Detalle</span>
-              <input
-                value={journalForm.description}
-                onChange={(event) => setJournalForm((current) => ({ ...current, description: event.target.value }))}
-                style={inputStyle}
-                placeholder="Cobro, pago, transferencia, combustible..."
-              />
-            </label>
+            {journalForm.movementType !== "expense" ? (
+              <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+                <span>1. Detalle</span>
+                <input
+                  value={journalForm.description}
+                  onChange={(event) => setJournalForm((current) => ({ ...current, description: event.target.value }))}
+                  style={inputStyle}
+                  placeholder="Cobro, pago, transferencia..."
+                />
+              </label>
+            ) : null}
 
             {journalForm.movementType === "expense" ? (
               <div style={{ ...subPanelStyle, gridColumn: "1 / -1" }}>
                 <div style={{ display: "grid", gap: 4 }}>
                   <h3 style={subPanelTitleStyle}>3. Datos de la salida</h3>
                   <span style={panelCaptionStyle}>
-                    Completa proveedor, documento, cantidad, unidad, moneda y, si corresponde, tarjeta y vencimiento.
+                    Completa tipo de gasto, proveedor y moneda. Si corresponde, agrega tarjeta y vencimiento.
                   </span>
                 </div>
 
@@ -617,44 +578,14 @@ export function NeonV2HomeSections({
                     />
                   </label>
                   <label style={fieldStyle}>
-                    <span>Documento</span>
+                    <span>Detalle</span>
                     <input
-                      value={journalForm.documentRef}
-                      onChange={(event) => setJournalForm((current) => ({ ...current, documentRef: event.target.value }))}
+                      value={journalForm.description}
+                      onChange={(event) => setJournalForm((current) => ({ ...current, description: event.target.value }))}
                       style={inputStyle}
-                      placeholder="Factura, ticket, recibo..."
+                      placeholder="Combustible, materiales, reparacion, pago..."
                     />
                   </label>
-                  {!isCreditSettlement ? (
-                    <>
-                      <label style={fieldStyle}>
-                        <span>Cantidad</span>
-                        <input
-                          type="number"
-                          min="0.01"
-                          step="0.01"
-                          value={journalForm.quantity}
-                          onChange={(event) => setJournalForm((current) => ({ ...current, quantity: event.target.value }))}
-                          style={inputStyle}
-                          placeholder="1"
-                        />
-                      </label>
-                      <label style={fieldStyle}>
-                        <span>Unidad</span>
-                        <input
-                          value={journalForm.unitLabel}
-                          onChange={(event) =>
-                            setJournalForm((current) => ({
-                              ...current,
-                              unitLabel: event.target.value.replace(/\d+/g, "")
-                            }))
-                          }
-                          style={inputStyle}
-                          placeholder="litros, kg, unidades..."
-                        />
-                      </label>
-                    </>
-                  ) : null}
                   <label style={fieldStyle}>
                     <span>Moneda</span>
                     <select

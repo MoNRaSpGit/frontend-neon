@@ -19,8 +19,8 @@ Se busca dejar una base funcional para validar con cliente:
 
 Hoy `frontend-neon` expone cuatro vistas:
 
-- `Resumen`
 - `Diario`
+- `Resumen`
 - `Actividades`
 - `Reportes`
 
@@ -71,10 +71,8 @@ Campos funcionales visibles hoy:
 - account
 - total amount
 - description
+- expense detail
 - provider
-- document
-- quantity
-- unit
 - currency
 - expense kind
 - card label
@@ -169,6 +167,21 @@ El frontend expone presets para acelerar la validacion:
   - `Herramientas`
   - `OTROS1`
 
+## Dataset demo vigente
+
+El tenant demo se puede resetear con:
+
+- `backend/scripts/reset-neon-demo-pilot-data.js`
+
+El set cargado hoy cubre:
+
+- `2` gastos
+- `2` ingresos
+- actividad
+- vehiculo
+- personal
+- alquiler
+
 ## Reportes vigentes
 
 Hoy la UI ya cubre una primera lectura util de:
@@ -215,6 +228,7 @@ Y ademas adapta el resumen principal segun foco:
 Este corte ya deja validado casi todo el pedido principal del cliente:
 
 - libro diario como entrada natural
+- diario como pantalla inicial del modulo
 - cuentas y saldo automatico
 - credito con tarjeta y vencimiento
 - reparto de un mismo movimiento entre varios destinos

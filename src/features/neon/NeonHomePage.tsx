@@ -42,7 +42,7 @@ export function NeonHomePage() {
     dateFrom: "",
     dateTo: ""
   });
-  const [activeView, setActiveView] = useState<NeonWorkspaceView>("overview");
+  const [activeView, setActiveView] = useState<NeonWorkspaceView>("journal");
   const [clientForm, setClientForm] = useState<ClientFormState>({
     name: "",
     phone: "",
@@ -130,7 +130,7 @@ export function NeonHomePage() {
       setClients((current) => [...current, createdClient].sort((left, right) => left.name.localeCompare(right.name)));
       setClientForm({ name: "", phone: "", notes: "" });
       setActivityForm((current) => ({ ...current, clientId: String(createdClient.id) }));
-      toast.success("Cliente guardado");
+      toast.success("Cliente guardado", { autoClose: 2400 });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo guardar el cliente");
     } finally {
@@ -168,7 +168,7 @@ export function NeonHomePage() {
         ...current,
         accountId: current.accountId || String(createdAccount.id)
       }));
-      toast.success("Cuenta guardada");
+      toast.success("Cuenta guardada", { autoClose: 2400 });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo guardar la cuenta");
     } finally {
@@ -211,7 +211,7 @@ export function NeonHomePage() {
         quotedAmount: "",
         commercialStatus: "pendiente_de_facturar"
       }));
-      toast.success("Actividad guardada");
+      toast.success("Actividad guardada", { autoClose: 2400 });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo guardar la actividad");
     } finally {
@@ -223,7 +223,6 @@ export function NeonHomePage() {
     event.preventDefault();
 
     const totalAmount = Number(journalForm.totalAmount);
-    const quantity = journalForm.quantity ? Number(journalForm.quantity) : undefined;
     const selectedAccount = accounts.find((account) => account.id === Number(journalForm.accountId));
     if (!journalForm.accountId) {
       toast.error("Campo faltante: Cuenta. Elegi desde que cuenta sale o entra el movimiento.");
@@ -254,21 +253,6 @@ export function NeonHomePage() {
       } else {
         if (!journalForm.providerName.trim()) {
           toast.error("Campo faltante: Proveedor. Escribi a quien le hiciste el gasto.");
-          return;
-        }
-
-        if (!Number.isFinite(quantity) || !quantity || quantity <= 0) {
-          toast.error("Campo invalido: Cantidad. Ingresa solo un numero mayor a 0, por ejemplo 20.");
-          return;
-        }
-
-        if (!journalForm.unitLabel.trim()) {
-          toast.error("Campo faltante: Unidad. Escribi solo texto, por ejemplo litros, kg o unidades.");
-          return;
-        }
-
-        if (/\d/.test(journalForm.unitLabel)) {
-          toast.error("Campo invalido: Unidad. No uses numeros; escribi solo texto, por ejemplo litros o kg.");
           return;
         }
       }
@@ -346,13 +330,9 @@ export function NeonHomePage() {
           journalForm.movementType === "expense" && journalForm.expenseKind !== "credit_settlement"
             ? journalForm.providerName.trim() || undefined
             : undefined,
-        documentRef: journalForm.movementType === "expense" ? journalForm.documentRef.trim() || undefined : undefined,
-        quantity:
-          journalForm.movementType === "expense" && journalForm.expenseKind !== "credit_settlement" ? quantity : undefined,
-        unitLabel:
-          journalForm.movementType === "expense" && journalForm.expenseKind !== "credit_settlement"
-            ? journalForm.unitLabel.trim() || undefined
-            : undefined,
+        documentRef: undefined,
+        quantity: undefined,
+        unitLabel: undefined,
         currencyCode: journalForm.movementType === "expense" ? journalForm.currencyCode || undefined : undefined,
         creditCardLabel:
           journalForm.movementType === "expense" &&
@@ -385,7 +365,7 @@ export function NeonHomePage() {
         dueDate: "",
         allocations: [createEmptyJournalAllocation()]
       }));
-      toast.success("Movimiento guardado");
+      toast.success("Movimiento guardado", { autoClose: 2400 });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo guardar el movimiento");
     } finally {
