@@ -6,7 +6,7 @@ export type ClientFormState = {
 
 export type AccountFormState = {
   name: string;
-  accountType: "cash" | "bank";
+  accountType: "cash" | "bank" | "credit";
   openingBalance: string;
 };
 
@@ -20,7 +20,7 @@ export type ActivityFormState = {
 };
 
 export type JournalAllocationFormState = {
-  destinationType: "" | "activity" | "vehicle" | "personal" | "other";
+  destinationType: "" | "activity" | "vehicle" | "personal" | "rental" | "other";
   destinationActivityId: string;
   destinationLabel: string;
   amount: string;
@@ -34,5 +34,27 @@ export type JournalFormState = {
   accountId: string;
   totalAmount: string;
   description: string;
+  expenseKind: "operational" | "credit_settlement";
+  providerName: string;
+  documentRef: string;
+  quantity: string;
+  unitLabel: string;
+  currencyCode: "" | "UYU" | "USD";
+  creditCardLabel: string;
+  dueDate: string;
   allocations: JournalAllocationFormState[];
 };
+
+export type DebtReportRange = "all" | "overdue" | "today" | "week" | "month";
+
+export type ReportPeriodRange = "all" | "today" | "week" | "month";
+
+export type ReportPeriodFilter = {
+  range: ReportPeriodRange;
+  dateFrom: string;
+  dateTo: string;
+};
+
+export type ReportCenterScope = "all" | "activity" | "vehicle" | "personal" | "rental" | "other";
+
+export type NeonWorkspaceView = "overview" | "journal" | "activities" | "reports";

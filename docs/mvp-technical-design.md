@@ -2,152 +2,101 @@
 
 Fecha de actualizacion: 2026-05-06
 
-## Objetivo
+## Objetivo de este corte
 
-Bajar el contexto funcional V3 a un corte tecnico claro:
+Traducir el contexto V3 a un estado tecnico real de piloto.
 
-- que ya esta implementado
-- que sigue faltando
-- en que orden conviene seguir
+No se busca cerrar arquitectura definitiva.
 
-## Corte tecnico actual
+Se busca dejar una base funcional para validar con cliente:
 
-Hoy el nucleo nuevo ya existe.
-
-Bloques implementados:
-
-1. cuentas
-2. libro diario simple
-3. centros de costo simples
-4. division por multiples lineas
-5. actividades integradas al nuevo modelo
-6. cobrado y pendiente calculados desde journal
-7. dashboard simple
+- flujo de libro diario
+- cuentas y credito
+- centros de costo multiples
+- reportes suficientes para orientar el siguiente bloque
 
 ## Pantallas reales actuales
 
-Hoy `frontend-neon` expone:
+Hoy `frontend-neon` expone cuatro vistas:
 
-- dashboard
-- cuentas
-- libro diario
-- actividades
-- reportes base
+- `Resumen`
+- `Diario`
+- `Actividades`
+- `Reportes`
 
 No se toma como vigente el flujo viejo por tarjetas.
 
-## Entidades vigentes
+## Entidades y conceptos vigentes
 
 ### 1. clients
 
-Campos activos:
-
-- id
-- tenant_id
-- name
-- phone nullable
-- notes nullable
-- deleted_at nullable
-- created_at
-- updated_at
+Se mantienen como base de actividades numeradas.
 
 ### 2. accounts
 
-Campos activos:
-
-- id
-- tenant_id
-- name
-- account_type
-- opening_balance
-- deleted_at nullable
-- created_at
-- updated_at
-
 Tipos usados hoy:
 
-- cash
-- bank
+- `cash`
+- `bank`
+- `credit`
 
-Pendiente V3:
+Uso:
 
-- credito
+- registrar de donde sale o entra el dinero
+- recalcular saldo por movimientos
 
 ### 3. activities
 
-Campos activos:
+Se mantienen como entidad comercial.
 
-- id
-- tenant_id
-- activity_number
-- activity_year
-- activity_date
-- description
-- client_id nullable
-- activity_type
-- commercial_status
-- quoted_amount
-- deleted_at nullable
-- created_at
-- updated_at
+Estados usados en UI:
 
-Notas:
+- `pendiente_de_facturar`
+- `facturado`
+- `pendiente_de_cobrar`
 
-- `facturado` se normaliza a `pendiente_de_cobrar`
-- `cobrado` se deriva desde ingresos del journal
+Regla operativa:
+
+- el cobro real viene del libro diario
+- no se trata a `cobrado` como estado manual principal
 
 ### 4. movements
 
-Campos activos:
+El movimiento es la pieza central del producto.
 
-- id
-- tenant_id
-- movement_type
-- movement_date
-- account_id
-- total_amount
+Campos funcionales visibles hoy:
+
+- movement type
+- date
+- account
+- total amount
 - description
-- source_type
-- source_activity_id nullable
-- deleted_at nullable
-- created_at
-- updated_at
+- provider
+- document
+- quantity
+- unit
+- currency
+- expense kind
+- card label
+- due date
 
 Uso actual:
 
 - registrar ingresos y gastos
 - impactar saldos de cuenta
+- capturar salidas V3 del piloto
 
-Pendiente V3 en esta entidad:
+### 5. movement allocations
 
-- proveedor
-- documento
-- cantidad
-- unidad de medida
-- moneda
-- datos de credito
+Cada movimiento puede dividirse en varias lineas.
 
-### 5. movement_allocations
+Destinos vigentes:
 
-Campos activos:
-
-- id
-- tenant_id
-- movement_id
-- destination_type
-- destination_activity_id nullable
-- destination_label nullable
-- amount
-- metadata_json nullable
-- created_at
-- updated_at
-
-Destinos activos:
-
-- activity
-- vehicle
-- personal
-- other
+- `activity`
+- `vehicle`
+- `personal`
+- `rental`
+- `other`
 
 Regla activa:
 
@@ -155,12 +104,90 @@ Regla activa:
 
 ### 6. vehicle metadata
 
-Hoy los datos de vehiculo se guardan dentro de `metadata_json` de la allocation.
+Los datos de vehiculo siguen dentro de metadata de allocation.
 
-Campos activos:
+Campos usados:
 
-- kilometers nullable
-- liters nullable
+- kilometers
+- liters
+
+## Flujo funcional vigente
+
+### Gasto
+
+1. se registra el movimiento base
+2. se elige de donde sale el dinero
+3. si es `credit`, se completa tarjeta y vencimiento
+4. se asigna el gasto a uno o varios centros de costo
+
+### Ingreso
+
+1. se registra el movimiento base
+2. se elige donde entra el dinero
+3. se asigna el ingreso a uno o varios centros de costo
+
+No obliga actividad.
+
+Esto permite:
+
+- cobros de actividad
+- ingresos por alquileres
+- ingresos personales o de otros flujos
+
+## Presets de prueba
+
+El frontend expone presets para acelerar la validacion:
+
+### Cuentas sugeridas
+
+- `Caja $`
+- `BROU $`
+- `BBVA $`
+- `ITAU U$S`
+- `Credito`
+
+### Tarjetas sugeridas
+
+- `Visa Itau`
+- `Master BBVA`
+- `Porto Seguro`
+
+### Centros de costo sugeridos
+
+- vehiculos:
+  - `Toyota RAA1111`
+  - `Micro SAH2222`
+  - `Movil RAE2323`
+- personal:
+  - `Casa`
+  - `Uso personal`
+- alquileres:
+  - `ALQ1`
+  - `ALQ2`
+- otros:
+  - `Generador`
+  - `Herramientas`
+  - `OTROS1`
+
+## Reportes vigentes
+
+Hoy la UI ya cubre una primera lectura util de:
+
+- saldos por cuenta
+- deuda por tarjeta y vencimiento
+- pagos de tarjeta recientes
+- gastos e ingresos por centro
+- libro diario filtrado
+- resultados por actividad
+- actividades pendientes
+
+Y ademas adapta el resumen principal segun foco:
+
+- vehiculo
+- actividad
+- alquiler
+- personal
+- otros
 
 ## Reglas de calculo vigentes
 
@@ -171,72 +198,44 @@ Campos activos:
 ### Actividad
 
 - total = quoted_amount
-- cobrado = suma de lineas de ingreso asignadas a esa actividad
+- cobrado = suma de ingresos asignados a la actividad
 - pendiente = quoted_amount - cobrado
-- estado:
-  - `pendiente_de_facturar` si todavia no fue facturada
-  - `pendiente_de_cobrar` cuando entra a circuito comercial
-  - `cobrado` cuando pendiente llega a cero
+
+### Deuda de tarjeta
+
+- deuda = gastos a credito - pagos de tarjeta asociados
 
 ### Movimiento dividido
 
 - validacion dura de suma exacta
 - si no coincide, no se guarda
 
-## Estado implementado por modulo
+## Mini cierre del piloto
 
-### Backend
+Este corte ya deja validado casi todo el pedido principal del cliente:
 
-Ya existe:
+- libro diario como entrada natural
+- cuentas y saldo automatico
+- credito con tarjeta y vencimiento
+- reparto de un mismo movimiento entre varios destinos
+- alquileres fuera de actividades
+- lectura base de vehiculos, actividades y deuda
 
-- `GET /api/v1/neon/accounts`
-- `POST /api/v1/neon/accounts`
-- `GET /api/v1/neon/clients`
-- `POST /api/v1/neon/clients`
-- `PATCH /api/v1/neon/clients/:id`
-- `GET /api/v1/neon/activities`
-- `GET /api/v1/neon/activities/:id`
-- `POST /api/v1/neon/activities`
-- `PATCH /api/v1/neon/activities/:id`
-- `GET /api/v1/neon/journal`
-- `POST /api/v1/neon/journal`
+## Lo que sigue en estado de prueba
 
-Compatibilidad heredada aun presente:
+Se mantiene deliberadamente abierto:
 
-- `POST /api/v1/neon/activities/:id/payments`
-- `GET /api/v1/neon/categories`
-- `POST /api/v1/neon/categories`
-- `GET /api/v1/neon/expenses`
-- `POST /api/v1/neon/expenses`
+- catalogos definitivos
+- lenguaje final de algunas vistas
+- estructura formal de alquileres
+- limpieza final de piezas legacy
+- endurecimiento de UX avanzada
 
-### Frontend
+## Camino recomendado despues de la devolucion
 
-Ya existe:
+Si el cliente confirma direccion:
 
-- formularios de cuentas
-- formularios de clientes
-- formularios de actividades
-- formulario de journal con multiples lineas
-- resumenes base del dashboard
-- reportes simples
-
-## Proximos pasos tecnicos
-
-Orden recomendado desde hoy:
-
-1. enriquecer `movements` para salidas V3
-2. agregar soporte de `credito`
-3. modelar tarjetas y vencimientos
-4. crear reporte de deuda pendiente
-5. limpiar endpoints y UI heredados
-6. filtros por fecha y periodo
-7. edicion y borrado logico visibles
-
-## Resultado esperado del siguiente bloque
-
-Al cerrar el siguiente bloque, el usuario ya deberia poder:
-
-- registrar salidas con mas datos operativos
-- registrar gastos a credito
-- saber cuanto debe y cuando vence
-- ver reportes basicos mas cercanos a la operativa real del cliente
+1. consolidar catalogos oficiales
+2. endurecer reportes mas usados
+3. cerrar alquileres y centros especiales
+4. recien despues abrir edicion y borrado logico

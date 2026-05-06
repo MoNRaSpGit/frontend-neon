@@ -16,7 +16,15 @@ import { NeonAccount, NeonActivity, NeonClient, NeonJournalAllocationInput, Neon
 import { buildDashboardSummary } from "./neon.v2.dashboard";
 import { createEmptyJournalAllocation } from "./neon.v2.journal";
 import { NeonV2HomeSections } from "./neon.v2.sections";
-import { AccountFormState, ActivityFormState, ClientFormState, JournalFormState } from "./neon.v2.types";
+import {
+  AccountFormState,
+  ActivityFormState,
+  ClientFormState,
+  DebtReportRange,
+  JournalFormState,
+  NeonWorkspaceView,
+  ReportPeriodFilter
+} from "./neon.v2.types";
 
 export function NeonHomePage() {
   const [loading, setLoading] = useState(true);
@@ -28,6 +36,13 @@ export function NeonHomePage() {
   const [accounts, setAccounts] = useState<NeonAccount[]>([]);
   const [activities, setActivities] = useState<NeonActivity[]>([]);
   const [journalEntries, setJournalEntries] = useState<NeonJournalEntry[]>([]);
+  const [debtReportRange, setDebtReportRange] = useState<DebtReportRange>("all");
+  const [reportPeriodFilter, setReportPeriodFilter] = useState<ReportPeriodFilter>({
+    range: "all",
+    dateFrom: "",
+    dateTo: ""
+  });
+  const [activeView, setActiveView] = useState<NeonWorkspaceView>("overview");
   const [clientForm, setClientForm] = useState<ClientFormState>({
     name: "",
     phone: "",
@@ -52,6 +67,14 @@ export function NeonHomePage() {
     accountId: "",
     totalAmount: "",
     description: "",
+    expenseKind: "operational",
+    providerName: "",
+    documentRef: "",
+    quantity: "",
+    unitLabel: "",
+    currencyCode: "UYU",
+    creditCardLabel: "",
+    dueDate: "",
     allocations: [createEmptyJournalAllocation()]
   });
 
@@ -200,14 +223,66 @@ export function NeonHomePage() {
     event.preventDefault();
 
     const totalAmount = Number(journalForm.totalAmount);
+    const quantity = journalForm.quantity ? Number(journalForm.quantity) : undefined;
+    const selectedAccount = accounts.find((account) => account.id === Number(journalForm.accountId));
     if (!journalForm.accountId) {
-      toast.error("Falta elegir la cuenta");
+      toast.error("Campo faltante: Cuenta. Elegi desde que cuenta sale o entra el movimiento.");
       return;
     }
 
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
-      toast.error("El monto debe ser valido");
+      toast.error("Campo invalido: Monto total. Ingresa un numero mayor a 0.");
       return;
+    }
+
+    if (journalForm.movementType === "expense") {
+      if (!journalForm.currencyCode) {
+        toast.error("Campo faltante: Moneda. Elegi la moneda del gasto.");
+        return;
+      }
+
+      if (journalForm.expenseKind === "credit_settlement") {
+        if (selectedAccount?.accountType === "credit") {
+          toast.error("Campo inconsistente: Cuenta. Un pago de tarjeta debe salir desde Caja o Banco, no desde una cuenta de credito.");
+          return;
+        }
+
+        if (!journalForm.creditCardLabel.trim()) {
+          toast.error("Campo faltante: Tarjeta. Indica que tarjeta estas cancelando.");
+          return;
+        }
+      } else {
+        if (!journalForm.providerName.trim()) {
+          toast.error("Campo faltante: Proveedor. Escribi a quien le hiciste el gasto.");
+          return;
+        }
+
+        if (!Number.isFinite(quantity) || !quantity || quantity <= 0) {
+          toast.error("Campo invalido: Cantidad. Ingresa solo un numero mayor a 0, por ejemplo 20.");
+          return;
+        }
+
+        if (!journalForm.unitLabel.trim()) {
+          toast.error("Campo faltante: Unidad. Escribi solo texto, por ejemplo litros, kg o unidades.");
+          return;
+        }
+
+        if (/\d/.test(journalForm.unitLabel)) {
+          toast.error("Campo invalido: Unidad. No uses numeros; escribi solo texto, por ejemplo litros o kg.");
+          return;
+        }
+      }
+
+      if (selectedAccount?.accountType === "credit" && journalForm.expenseKind !== "credit_settlement") {
+        if (!journalForm.creditCardLabel.trim()) {
+          toast.error("Campo faltante: Tarjeta. En una compra a credito tenes que indicar la tarjeta.");
+          return;
+        }
+        if (!journalForm.dueDate) {
+          toast.error("Campo faltante: Vencimiento. En una compra a credito tenes que cargar la fecha de vencimiento.");
+          return;
+        }
+      }
     }
 
     const normalizedAllocations: NeonJournalAllocationInput[] = journalForm.allocations
@@ -229,22 +304,23 @@ export function NeonHomePage() {
 
     for (const allocation of normalizedAllocations) {
       if (!Number.isFinite(allocation.amount) || allocation.amount <= 0) {
-        toast.error("Cada linea debe tener un monto valido");
+        toast.error("Campo invalido: Linea de asignacion. Cada linea debe tener un monto mayor a 0.");
         return;
       }
 
       if (allocation.destinationType === "activity" && !allocation.destinationActivityId) {
-        toast.error("Cada linea de actividad debe elegir una actividad");
+        toast.error("Campo faltante: Actividad en linea de asignacion. Elegi la actividad correspondiente.");
         return;
       }
 
       if (
         (allocation.destinationType === "vehicle" ||
           allocation.destinationType === "personal" ||
+          allocation.destinationType === "rental" ||
           allocation.destinationType === "other") &&
         !allocation.destinationLabel
       ) {
-        toast.error("Cada linea libre debe tener etiqueta");
+        toast.error("Campo faltante: Etiqueta en linea de asignacion. Completa a que corresponde esa linea.");
         return;
       }
     }
@@ -252,7 +328,7 @@ export function NeonHomePage() {
     if (normalizedAllocations.length > 0) {
       const allocationTotal = normalizedAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
       if (Math.round(allocationTotal * 100) !== Math.round(totalAmount * 100)) {
-        toast.error("La suma de las lineas debe coincidir con el monto total");
+        toast.error("Campos inconsistentes: Monto total y lineas de asignacion. La suma de las lineas debe coincidir exactamente con el monto total.");
         return;
       }
     }
@@ -265,6 +341,30 @@ export function NeonHomePage() {
         accountId: Number(journalForm.accountId),
         totalAmount,
         description: journalForm.description.trim() || undefined,
+        expenseKind: journalForm.movementType === "expense" ? journalForm.expenseKind : undefined,
+        providerName:
+          journalForm.movementType === "expense" && journalForm.expenseKind !== "credit_settlement"
+            ? journalForm.providerName.trim() || undefined
+            : undefined,
+        documentRef: journalForm.movementType === "expense" ? journalForm.documentRef.trim() || undefined : undefined,
+        quantity:
+          journalForm.movementType === "expense" && journalForm.expenseKind !== "credit_settlement" ? quantity : undefined,
+        unitLabel:
+          journalForm.movementType === "expense" && journalForm.expenseKind !== "credit_settlement"
+            ? journalForm.unitLabel.trim() || undefined
+            : undefined,
+        currencyCode: journalForm.movementType === "expense" ? journalForm.currencyCode || undefined : undefined,
+        creditCardLabel:
+          journalForm.movementType === "expense" &&
+          (selectedAccount?.accountType === "credit" || journalForm.expenseKind === "credit_settlement")
+            ? journalForm.creditCardLabel.trim() || undefined
+            : undefined,
+        dueDate:
+          journalForm.movementType === "expense" &&
+          selectedAccount?.accountType === "credit" &&
+          journalForm.expenseKind !== "credit_settlement"
+            ? journalForm.dueDate || undefined
+            : undefined,
         allocations: normalizedAllocations.length > 0 ? normalizedAllocations : undefined
       });
 
@@ -275,6 +375,14 @@ export function NeonHomePage() {
         movementDate: getTodayDateInputValue(),
         totalAmount: "",
         description: "",
+        expenseKind: "operational",
+        providerName: "",
+        documentRef: "",
+        quantity: "",
+        unitLabel: "",
+        currencyCode: "UYU",
+        creditCardLabel: "",
+        dueDate: "",
         allocations: [createEmptyJournalAllocation()]
       }));
       toast.success("Movimiento guardado");
@@ -286,8 +394,8 @@ export function NeonHomePage() {
   }
 
   const dashboard = useMemo(() => {
-    return buildDashboardSummary(accounts, activities, journalEntries);
-  }, [accounts, activities, journalEntries]);
+    return buildDashboardSummary(accounts, activities, journalEntries, debtReportRange, reportPeriodFilter);
+  }, [accounts, activities, journalEntries, debtReportRange, reportPeriodFilter]);
 
   const journalAllocationTotal = useMemo(
     () =>
@@ -318,6 +426,12 @@ export function NeonHomePage() {
         setActivityForm={setActivityForm}
         journalForm={journalForm}
         setJournalForm={setJournalForm}
+        activeView={activeView}
+        setActiveView={setActiveView}
+        debtReportRange={debtReportRange}
+        setDebtReportRange={setDebtReportRange}
+        reportPeriodFilter={reportPeriodFilter}
+        setReportPeriodFilter={setReportPeriodFilter}
         journalAllocationTotal={journalAllocationTotal}
         dashboard={dashboard}
         onCreateClient={handleCreateClient}

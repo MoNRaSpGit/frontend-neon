@@ -51,7 +51,7 @@ export async function listNeonAccounts(): Promise<NeonAccount[]> {
 
 export async function createNeonAccount(input: {
   name: string;
-  accountType: "cash" | "bank";
+  accountType: "cash" | "bank" | "credit";
   openingBalance?: number;
 }) {
   const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/accounts`, {
@@ -146,7 +146,7 @@ export async function listNeonJournal(params?: {
   limit?: number;
   movementType?: "income" | "expense";
   accountId?: number;
-  costCenterType?: "activity" | "vehicle" | "personal" | "other";
+  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
   dateFrom?: string;
   dateTo?: string;
   search?: string;
@@ -177,7 +177,15 @@ export async function createNeonJournalEntry(input: {
   accountId: number;
   totalAmount: number;
   description?: string;
-  costCenterType?: "activity" | "vehicle" | "personal" | "other";
+  expenseKind?: "operational" | "credit_settlement";
+  providerName?: string;
+  documentRef?: string;
+  quantity?: number;
+  unitLabel?: string;
+  currencyCode?: "UYU" | "USD";
+  creditCardLabel?: string;
+  dueDate?: string;
+  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
   destinationActivityId?: number;
   destinationLabel?: string;
   kilometers?: number;
@@ -226,7 +234,7 @@ export async function createNeonExpense(input: {
   expenseDate: string;
   totalAmount: number;
   description?: string;
-  destinationType: "activity" | "personal" | "vehicle" | "other";
+  destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
   destinationActivityId?: number;
   destinationLabel?: string;
 }) {

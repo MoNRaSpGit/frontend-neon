@@ -31,7 +31,7 @@ export type NeonAccount = {
   id: number;
   tenantId: number;
   name: string;
-  accountType: "cash" | "bank";
+  accountType: "cash" | "bank" | "credit";
   openingBalance: number;
   currentBalance: number;
   createdAt: string;
@@ -40,7 +40,7 @@ export type NeonAccount = {
 
 export type NeonJournalAllocation = {
   id: number;
-  destinationType: "activity" | "vehicle" | "personal" | "other";
+  destinationType: "activity" | "vehicle" | "personal" | "rental" | "other";
   destinationActivityId: number | null;
   destinationActivityCode: string | null;
   destinationActivityDescription: string | null;
@@ -50,7 +50,7 @@ export type NeonJournalAllocation = {
 };
 
 export type NeonJournalAllocationInput = {
-  destinationType: "activity" | "vehicle" | "personal" | "other";
+  destinationType: "activity" | "vehicle" | "personal" | "rental" | "other";
   destinationActivityId?: number;
   destinationLabel?: string;
   amount: number;
@@ -67,6 +67,14 @@ export type NeonJournalEntry = {
   accountName: string;
   totalAmount: number;
   description: string | null;
+  providerName: string | null;
+  documentRef: string | null;
+  quantity: number | null;
+  unitLabel: string | null;
+  currencyCode: "UYU" | "USD" | null;
+  expenseKind: "operational" | "credit_settlement" | null;
+  creditCardLabel: string | null;
+  dueDate: string | null;
   sourceType: "activity" | "independent";
   sourceActivityId: number | null;
   sourceActivityCode: string | null;
@@ -130,7 +138,7 @@ export type NeonExpense = {
   categoryClassification: "empresa" | "personal";
   totalAmount: number;
   description: string | null;
-  destinationType: "activity" | "personal" | "vehicle" | "other";
+  destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
   destinationActivityId: number | null;
   destinationActivityCode: string | null;
   destinationActivityDescription: string | null;

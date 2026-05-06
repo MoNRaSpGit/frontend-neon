@@ -11,119 +11,202 @@ Esta carpeta guarda la documentacion funcional y operativa de `frontend-neon`.
 
 ## Estado actual del frontend
 
-`frontend-neon` ya dejo atras el flujo viejo por tarjetas `Actividades -> Gastos -> Ingresos -> Movimientos`.
+`frontend-neon` ya no se interpreta como un flujo viejo por tarjetas.
 
-Hoy la home esta alineada al modelo nuevo V3 y se organiza alrededor de:
+Hoy la home del piloto se organiza en cuatro vistas:
 
-- dashboard
-- cuentas
-- libro diario
-- actividades
-- reportes base
+- `Resumen`
+- `Diario`
+- `Actividades`
+- `Reportes`
+
+La idea central del corte actual es esta:
+
+- primero existe el movimiento
+- despues se elige de donde sale o entra el dinero
+- si es credito se completan tarjeta y vencimiento
+- despues se reparte ese movimiento entre centros de costo
 
 ## Lo que hoy existe en la UI
 
-- login simplificado con boton `Iniciar`
-- ruta protegida del modulo `neon`
-- dashboard base con:
-  - saldo total
-  - ingresos
-  - gastos
-  - falta cobrar
-  - falta facturar
-- seccion de cuentas para crear y listar cuentas
-- seccion de libro diario para registrar:
-  - ingreso o gasto
-  - fecha
-  - cuenta
-  - monto total
-  - descripcion
-  - multiples lineas de asignacion
-- seccion de actividades para:
-  - crear cliente
-  - crear actividad
-  - ver cliente, cobrado y pendiente
-- reportes base para:
-  - ultimos movimientos
-  - actividades
-  - gastos por centro
-  - ingresos por actividad
+### Resumen
 
-## Estado real implementado hasta hoy
+Vista simple para abrir el modulo sin perder foco.
 
-Ya esta implementado y validado:
+Hoy muestra:
+
+- panorama general
+- alertas y pendientes
+- saldo total
+- seguimiento de cobros, facturacion y deuda
+
+### Diario
+
+Es la parte mas importante del piloto.
+
+Permite registrar:
+
+- ingreso o gasto
+- fecha
+- cuenta
+- importe total
+- detalle
+- multiples lineas de asignacion
+
+Y para salidas tambien:
+
+- proveedor
+- documento
+- cantidad
+- unidad
+- moneda
+- kilometraje y litros cuando aplica
+
+Si la cuenta es `credit`, tambien permite:
+
+- tarjeta
+- vencimiento
+
+Ademas soporta `pago de tarjeta` como tipo operativo para bajar deuda.
+
+### Actividades
+
+Se mantienen como entidad comercial numerada.
+
+Permite:
+
+- crear cliente
+- crear actividad
+- ver seguimiento comercial
+- ver pendientes
+- ver todas las actividades
+
+El lenguaje vigente es:
+
+- `pendiente de facturar`
+- `facturado`
+- `pendiente de cobrar`
+
+El cobro real baja desde el libro diario cuando entra dinero asignado a esa actividad.
+
+### Reportes
+
+Se reordeno para validar la idea pedida por cliente:
+
+- elegir fechas
+- elegir centro
+- ver una historia concreta
+
+Hoy incluye:
+
+- saldos por cuenta
+- deuda pendiente y tarjetas
+- gastos e ingresos por centro de costo
+- movimientos del centro
+- libro diario filtrado
+- actividades pendientes
+- resultados por actividad
+
+Y ya distingue mejor segun el caso:
+
+- vehiculo
+- actividad
+- alquiler
+- personal
+- otros
+
+## Base funcional implementada
+
+Hoy ya esta implementado y validado:
 
 - cuentas base y cuentas nuevas
-- libro diario simple
+- soporte de cuentas:
+  - `cash`
+  - `bank`
+  - `credit`
+- libro diario V3 para piloto
 - division por multiples lineas
 - asignacion a:
   - actividad
   - vehiculo
   - personal
+  - alquiler
   - otros
 - kilometraje y litros en lineas de vehiculo
+- deuda pendiente por credito
+- neteo de deuda con pagos de tarjeta
 - actividades integradas al nuevo modelo
 - cobrado y pendiente calculados desde ingresos del journal
-- estados comerciales derivados para actividades
+- filtros por periodo en reportes
+- rango personalizado en reportes
 
-## Lo que todavia no esta cerrado en frontend
+## Presets de prueba vigentes
 
-Pendientes principales:
+Para que el cliente se vea reflejado rapido, la UI ya sugiere:
 
-- captura completa de datos V3 para salidas:
-  - proveedor
-  - documento
-  - cantidad
-  - unidad
-  - moneda
-- soporte real de credito en la UI
-- tarjetas y vencimientos
-- filtros por fecha
-- edicion de movimientos
-- borrado logico visible en UX
-- vistas mas completas de reportes
+### Cuentas
 
-## Endpoints principales que consume hoy
+- `Caja $`
+- `BROU $`
+- `BBVA $`
+- `ITAU U$S`
+- `Credito`
 
-- `GET /api/v1/neon/status`
-- `GET /api/v1/neon/clients`
-- `POST /api/v1/neon/clients`
-- `PATCH /api/v1/neon/clients/:id`
-- `GET /api/v1/neon/accounts`
-- `POST /api/v1/neon/accounts`
-- `GET /api/v1/neon/activities`
-- `GET /api/v1/neon/activities/:id`
-- `POST /api/v1/neon/activities`
-- `PATCH /api/v1/neon/activities/:id`
-- `GET /api/v1/neon/journal`
-- `POST /api/v1/neon/journal`
+### Tarjetas
 
-Compatibilidad heredada aun presente:
+- `Visa Itau`
+- `Master BBVA`
+- `Porto Seguro`
 
-- `POST /api/v1/neon/activities/:id/payments`
-- `GET /api/v1/neon/categories`
-- `POST /api/v1/neon/categories`
-- `GET /api/v1/neon/expenses`
-- `POST /api/v1/neon/expenses`
+### Centros de costo base
+
+- vehiculos:
+  - `Toyota RAA1111`
+  - `Micro SAH2222`
+  - `Movil RAE2323`
+- personal / casa:
+  - `Casa`
+  - `Uso personal`
+- alquileres:
+  - `ALQ1`
+  - `ALQ2`
+- otros:
+  - `Generador`
+  - `Herramientas`
+  - `OTROS1`
+
+## Lo que todavia no se cierra a proposito
+
+Este corte se mantiene en estado de piloto.
+
+Todavia no se endurece:
+
+- catalogo oficial definitivo de cuentas
+- catalogo oficial definitivo de tarjetas
+- gestion fuerte de alquileres como entidad propia
+- edicion y borrado logico visibles
+- limpieza final de piezas heredadas
 
 ## Donde quedamos hoy
 
-El producto ya tiene una base util para demo real del modelo nuevo:
+El producto ya tiene una base util para prueba real con cliente:
 
-- se puede crear cuenta
-- se puede crear cliente
-- se puede crear actividad
-- se puede registrar ingreso o gasto
-- se puede dividir el movimiento por centros
-- se puede consultar saldos, pendientes y reportes simples
+- puede cargar ingresos y gastos
+- puede dividirlos entre varios destinos
+- puede registrar credito y vencimientos
+- puede separar alquileres de actividades
+- puede mirar cuentas, deuda y reportes por centro
 
-## Proximos pasos recomendados
+## Siguiente paso recomendado
 
-1. completar el modelo V3 de salidas
-2. incorporar credito, tarjetas y vencimientos
-3. limpiar UX y endpoints heredados que ya no son el nucleo
-4. agregar filtros y reportes por periodo
-5. habilitar edicion y borrado logico
+No meter mas codigo fuerte hasta recibir devolucion.
+
+El camino sugerido es:
+
+1. que el cliente pruebe el flujo diario
+2. escuchar ajustes de lenguaje, centros y reportes
+3. confirmar si la direccion es correcta
+4. recien despues endurecer modelo y UX final
 
 ## Siguiente lectura
 

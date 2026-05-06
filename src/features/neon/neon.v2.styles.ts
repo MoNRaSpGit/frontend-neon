@@ -40,6 +40,37 @@ export const heroBodyStyle: CSSProperties = {
   maxWidth: 900
 };
 
+export const workspaceNavWrapStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: 1180,
+  margin: "0 auto",
+  display: "flex",
+  justifyContent: "center"
+};
+
+export const workspaceNavStyle: CSSProperties = {
+  width: "100%",
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap",
+  padding: 10,
+  borderRadius: 24,
+  border: `1px solid ${COLORS.border}`,
+  background: "rgba(252, 250, 246, 0.96)",
+  boxShadow: "0 12px 26px rgba(32, 34, 38, 0.05)"
+};
+
+export const workspaceNavButtonStyle: CSSProperties = {
+  minHeight: 44,
+  padding: "0 16px",
+  borderRadius: 999,
+  border: `1px solid ${COLORS.border}`,
+  background: COLORS.panel,
+  color: COLORS.ink,
+  fontWeight: 800,
+  cursor: "pointer"
+};
+
 export const dashboardGridStyle: CSSProperties = {
   width: "100%",
   maxWidth: 1180,
