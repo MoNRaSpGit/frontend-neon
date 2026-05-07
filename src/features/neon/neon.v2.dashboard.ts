@@ -158,7 +158,7 @@ export type DashboardSummary = {
 export type DerivedCommercialStatus = "pendiente_de_facturar" | "pendiente_de_cobrar" | "cobrado";
 
 export function getCompanyLabel(company: NeonCompanyKey) {
-  return company === "audiovisual" ? "Audiovisual" : "Neon";
+  return company === "empresa_negra" ? "Empresa B" : "Empresa A";
 }
 
 export function deriveCommercialStatus(
@@ -184,8 +184,8 @@ export function getCommercialStatusLabel(status: DerivedCommercialStatus) {
   return "Cobrado";
 }
 
-export function getActivityCompany(activity: Pick<NeonActivity, "activityType">): NeonCompanyKey {
-  return activity.activityType === "movil_audiovisual" ? "audiovisual" : "neon";
+export function getActivityCompany(activity: Pick<NeonActivity, "companyKey">): NeonCompanyKey {
+  return activity.companyKey || "empresa_verde";
 }
 
 export function filterActivitiesByCompany(activities: NeonActivity[], company: NeonCompanyKey) {

@@ -25,7 +25,7 @@ const DEMO_USER = {
 type MutableAccount = Omit<NeonAccount, "currentBalance">;
 type MutableActivity = Omit<NeonActivity, "collectedAmount" | "pendingAmount" | "payments">;
 type JournalCreationInput = {
-  companyKey?: "neon" | "audiovisual";
+  companyKey?: "empresa_verde" | "empresa_negra";
   movementType: "income" | "expense";
   movementDate: string;
   accountId: number;
@@ -54,7 +54,7 @@ type ExpenseCreationInput = {
 };
 
 const demoNow = "2026-05-06T21:30:00.000-03:00";
-const DEMO_STORAGE_KEY = "neon-demo-workspace-v1";
+const DEMO_STORAGE_KEY = "neon-demo-workspace-v2";
 
 const seedClients: NeonClient[] = [
   {
@@ -161,7 +161,7 @@ const seedActivities: MutableActivity[] = [
   {
     id: 1,
     tenantId: DEMO_TENANT.id,
-    companyKey: "neon",
+    companyKey: "empresa_verde",
     activityNumber: 14,
     activityYear: 2026,
     activityDate: "2026-05-03",
@@ -173,14 +173,14 @@ const seedActivities: MutableActivity[] = [
     quotedAmount: 18500,
     invoiceDate: "2026-05-04",
     invoicedAmount: 18500,
-    invoiceCompanyKey: "neon",
+    invoiceCompanyKey: "empresa_verde",
     createdAt: "2026-05-03T11:00:00.000-03:00",
     updatedAt: "2026-05-03T11:00:00.000-03:00"
   },
   {
     id: 2,
     tenantId: DEMO_TENANT.id,
-    companyKey: "audiovisual",
+    companyKey: "empresa_negra",
     activityNumber: 15,
     activityYear: 2026,
     activityDate: "2026-05-04",
@@ -199,7 +199,7 @@ const seedActivities: MutableActivity[] = [
   {
     id: 3,
     tenantId: DEMO_TENANT.id,
-    companyKey: "neon",
+    companyKey: "empresa_negra",
     activityNumber: 16,
     activityYear: 2026,
     activityDate: "2026-05-05",
@@ -211,7 +211,7 @@ const seedActivities: MutableActivity[] = [
     quotedAmount: 9800,
     invoiceDate: "2026-05-05",
     invoicedAmount: 9800,
-    invoiceCompanyKey: "neon",
+    invoiceCompanyKey: "empresa_negra",
     createdAt: "2026-05-05T12:10:00.000-03:00",
     updatedAt: "2026-05-05T12:10:00.000-03:00"
   }
@@ -221,7 +221,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 1,
     tenantId: DEMO_TENANT.id,
-    companyKey: "neon",
+    companyKey: "empresa_verde",
     movementType: "income",
     movementDate: "2026-05-05",
     accountId: 2,
@@ -258,7 +258,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 2,
     tenantId: DEMO_TENANT.id,
-    companyKey: "neon",
+    companyKey: "empresa_verde",
     movementType: "expense",
     movementDate: "2026-05-05",
     accountId: 1,
@@ -308,7 +308,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 3,
     tenantId: DEMO_TENANT.id,
-    companyKey: "neon",
+    companyKey: "empresa_negra",
     movementType: "expense",
     movementDate: "2026-05-06",
     accountId: 5,
@@ -358,7 +358,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 4,
     tenantId: DEMO_TENANT.id,
-    companyKey: "neon",
+    companyKey: "empresa_verde",
     movementType: "income",
     movementDate: "2026-05-06",
     accountId: 3,
@@ -404,8 +404,8 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function getFallbackCompanyKeyFromActivityType(activityType: MutableActivity["activityType"]) {
-  return activityType === "movil_audiovisual" ? "audiovisual" : "neon";
+function getFallbackCompanyKeyFromActivityType(_activityType: MutableActivity["activityType"]) {
+  return "empresa_verde";
 }
 
 function normalizeActivity(activity: MutableActivity): MutableActivity {
@@ -433,7 +433,7 @@ function normalizeJournalEntry(entry: NeonJournalEntry): NeonJournalEntry {
       .map((activityId) => activitiesStore.find((activity) => activity.id === activityId))
       .find(Boolean);
 
-    inferredCompanyKey = relatedActivity?.companyKey || "neon";
+    inferredCompanyKey = relatedActivity?.companyKey || "empresa_verde";
   }
 
   return {
@@ -884,7 +884,7 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
   const entry: NeonJournalEntry = {
     id: nextId(journalStore),
     tenantId: DEMO_TENANT.id,
-    companyKey: relatedActivityCompanyKey || input.companyKey || "neon",
+    companyKey: relatedActivityCompanyKey || input.companyKey || "empresa_verde",
     movementType: input.movementType,
     movementDate: input.movementDate,
     accountId: input.accountId,
@@ -917,13 +917,13 @@ export async function createNeonActivity(input: {
   activityDate: string;
   description: string;
   clientId?: number;
-  companyKey: "neon" | "audiovisual";
+  companyKey: "empresa_verde" | "empresa_negra";
   activityType: "neon" | "movil_audiovisual" | "otros";
   quotedAmount: number;
   commercialStatus?: "pendiente_de_facturar" | "facturado" | "pendiente_de_cobrar" | "cobrado";
   invoiceDate?: string;
   invoicedAmount?: number;
-  invoiceCompanyKey?: "neon" | "audiovisual";
+  invoiceCompanyKey?: "empresa_verde" | "empresa_negra";
 }) {
   const timestamp = nowIso();
   const activityYear = Number(input.activityDate.slice(0, 4));
@@ -964,7 +964,7 @@ export async function createNeonExpense(input: {
   expenseDate: string;
   totalAmount: number;
   description?: string;
-  companyKey?: "neon" | "audiovisual";
+  companyKey?: "empresa_verde" | "empresa_negra";
   destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
   destinationActivityId?: number;
   destinationLabel?: string;

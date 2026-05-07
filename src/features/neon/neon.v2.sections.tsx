@@ -175,8 +175,8 @@ const WORKSPACE_VIEWS: Array<{ value: NeonWorkspaceView; label: string; descript
   { value: "centers", label: "Centros", description: "Centros de costo por empresa" }
 ];
 const COMPANY_OPTIONS: Array<{ value: NeonCompanyKey; label: string; hint: string }> = [
-  { value: "neon", label: "Neon", hint: "Carteleria, neon y operacion general" },
-  { value: "audiovisual", label: "Audiovisual", hint: "Movil audiovisual y reportes separados" }
+  { value: "empresa_verde", label: "Empresa A", hint: "Incluye Neon, Móviles audiovisuales y Otros" },
+  { value: "empresa_negra", label: "Empresa B", hint: "Incluye Neon, Móviles audiovisuales y Otros" }
 ];
 
 const SUGGESTED_ACCOUNT_PRESETS: Array<{ name: string; accountType: AccountFormState["accountType"] }> = [

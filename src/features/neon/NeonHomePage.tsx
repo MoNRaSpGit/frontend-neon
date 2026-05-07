@@ -35,31 +35,31 @@ import {
   ReportPeriodFilter
 } from "./neon.v2.types";
 
-const ACTIVE_COMPANY_STORAGE_KEY = "neon-active-company-v1";
-const COST_CENTERS_STORAGE_KEY = "neon-cost-centers-v1";
+const ACTIVE_COMPANY_STORAGE_KEY = "neon-active-company-v2";
+const COST_CENTERS_STORAGE_KEY = "neon-cost-centers-v2";
 
 const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
-  { id: "neon-vehicle-toyota", companyKey: "neon", scope: "vehicle", label: "Toyota RAA1111", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "neon-vehicle-micro", companyKey: "neon", scope: "vehicle", label: "Micro SAH2222", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "neon-vehicle-movil", companyKey: "neon", scope: "vehicle", label: "Movil RAE2323", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "neon-personal-casa", companyKey: "neon", scope: "personal", label: "Casa", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "neon-personal-uso", companyKey: "neon", scope: "personal", label: "Uso personal", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "neon-rental-alq1", companyKey: "neon", scope: "rental", label: "ALQ1", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "neon-rental-alq2", companyKey: "neon", scope: "rental", label: "ALQ2", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "neon-other-otros", companyKey: "neon", scope: "other", label: "Otros", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "av-vehicle-camioneta", companyKey: "audiovisual", scope: "vehicle", label: "Camioneta AV1", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "av-personal-casa", companyKey: "audiovisual", scope: "personal", label: "Casa", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "av-rental-equipo", companyKey: "audiovisual", scope: "rental", label: "ALQ AV1", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "av-other-otros", companyKey: "audiovisual", scope: "other", label: "Otros", createdAt: "2026-05-02T09:00:00.000-03:00" }
+  { id: "ev-vehicle-toyota", companyKey: "empresa_verde", scope: "vehicle", label: "Toyota RAA1111", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "ev-vehicle-micro", companyKey: "empresa_verde", scope: "vehicle", label: "Micro SAH2222", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "ev-vehicle-movil", companyKey: "empresa_verde", scope: "vehicle", label: "Movil RAE2323", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "ev-personal-casa", companyKey: "empresa_verde", scope: "personal", label: "Casa", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "ev-personal-uso", companyKey: "empresa_verde", scope: "personal", label: "Uso personal", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "ev-rental-alq1", companyKey: "empresa_verde", scope: "rental", label: "ALQ1", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "ev-rental-alq2", companyKey: "empresa_verde", scope: "rental", label: "ALQ2", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "ev-other-otros", companyKey: "empresa_verde", scope: "other", label: "Otros", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "en-vehicle-camioneta", companyKey: "empresa_negra", scope: "vehicle", label: "Camioneta AV1", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "en-personal-casa", companyKey: "empresa_negra", scope: "personal", label: "Casa", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "en-rental-equipo", companyKey: "empresa_negra", scope: "rental", label: "ALQ AV1", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "en-other-otros", companyKey: "empresa_negra", scope: "other", label: "Otros", createdAt: "2026-05-02T09:00:00.000-03:00" }
 ];
 
 function getInitialActiveCompany(): NeonCompanyKey {
   if (typeof window === "undefined") {
-    return "neon";
+    return "empresa_verde";
   }
 
   const storedValue = window.localStorage.getItem(ACTIVE_COMPANY_STORAGE_KEY);
-  return storedValue === "audiovisual" ? "audiovisual" : "neon";
+  return storedValue === "empresa_negra" ? "empresa_negra" : "empresa_verde";
 }
 
 function getInitialCostCenters(): NeonCostCenterRecord[] {

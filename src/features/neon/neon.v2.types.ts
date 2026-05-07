@@ -63,7 +63,7 @@ export type NeonCostCenterScope = Exclude<ReportCenterScope, "all" | "activity">
 
 export type NeonWorkspaceView = "idle" | "overview" | "journal" | "activities" | "reports" | "centers";
 
-export type NeonCompanyKey = "neon" | "audiovisual";
+export type NeonCompanyKey = "empresa_verde" | "empresa_negra";
 
 export type CostCenterFormState = {
   editingId: string | null;
