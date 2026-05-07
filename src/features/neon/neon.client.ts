@@ -53,6 +53,7 @@ type ExpenseCreationInput = {
 };
 
 const demoNow = "2026-05-06T21:30:00.000-03:00";
+const DEMO_STORAGE_KEY = "neon-demo-workspace-v1";
 
 const seedClients: NeonClient[] = [
   {
@@ -386,6 +387,65 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function canUseStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function persistStores() {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  const snapshot = {
+    clients: clientsStore,
+    accounts: accountsStore,
+    categories: categoriesStore,
+    activities: activitiesStore,
+    journal: journalStore
+  };
+
+  window.localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function restoreStores() {
+  if (!canUseStorage()) {
+    return;
+  }
+
+  const rawSnapshot = window.localStorage.getItem(DEMO_STORAGE_KEY);
+  if (!rawSnapshot) {
+    return;
+  }
+
+  try {
+    const snapshot = JSON.parse(rawSnapshot) as Partial<{
+      clients: NeonClient[];
+      accounts: MutableAccount[];
+      categories: NeonCategory[];
+      activities: MutableActivity[];
+      journal: NeonJournalEntry[];
+    }>;
+
+    if (
+      Array.isArray(snapshot.clients) &&
+      Array.isArray(snapshot.accounts) &&
+      Array.isArray(snapshot.categories) &&
+      Array.isArray(snapshot.activities) &&
+      Array.isArray(snapshot.journal)
+    ) {
+      clientsStore = clone(snapshot.clients);
+      accountsStore = clone(snapshot.accounts);
+      categoriesStore = clone(snapshot.categories);
+      activitiesStore = clone(snapshot.activities);
+      journalStore = clone(snapshot.journal);
+    }
+  } catch {
+    window.localStorage.removeItem(DEMO_STORAGE_KEY);
+  }
+}
+
+restoreStores();
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -658,6 +718,7 @@ export async function createNeonAccount(input: {
   };
 
   accountsStore.push(account);
+  persistStores();
   return deriveAccounts().find((item) => item.id === account.id)!;
 }
 
@@ -678,6 +739,7 @@ export async function createNeonClient(input: { name: string; phone?: string; no
   };
 
   clientsStore.push(client);
+  persistStores();
   return clone(client);
 }
 
@@ -699,6 +761,7 @@ export async function createNeonCategory(input: {
   };
 
   categoriesStore.push(category);
+  persistStores();
   return clone(category);
 }
 
@@ -770,6 +833,7 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
   };
 
   journalStore.unshift(entry);
+  persistStores();
   return clone(entry);
 }
 
@@ -806,6 +870,7 @@ export async function createNeonActivity(input: {
   };
 
   activitiesStore.unshift(activity);
+  persistStores();
   return deriveActivities().find((item) => item.id === activity.id)!;
 }
 
