@@ -1,4 +1,9 @@
-import { formatActivityCode } from "./neon.home.helpers";
+import {
+  addDaysToDateInputValue,
+  formatActivityCode,
+  getMonthEndDateInputValue,
+  getTodayDateInputValue
+} from "./neon.home.helpers";
 import { NeonAccount, NeonActivity, NeonJournalAllocation, NeonJournalEntry } from "./neon.types";
 import { DebtReportRange, ReportCenterScope, ReportPeriodFilter, ReportPeriodRange } from "./neon.v2.types";
 
@@ -34,6 +39,7 @@ export type CardDebtSummary = {
 export type CardSettlementItem = {
   movementId: number;
   movementDate: string;
+  createdAt: string;
   sourceAccountName: string;
   cardLabel: string;
   description: string | null;
@@ -73,6 +79,7 @@ export type ReportCenterOption = {
 export type ReportMovementStoryItem = {
   movementId: number;
   movementDate: string;
+  createdAt: string;
   movementType: "income" | "expense";
   accountName: string;
   centerScope: ReportCenterScope;
@@ -258,6 +265,7 @@ function buildRecentCardSettlements(journalEntries: NeonJournalEntry[], limit: n
     .map((entry) => ({
       movementId: entry.id,
       movementDate: entry.movementDate,
+      createdAt: entry.createdAt,
       sourceAccountName: entry.accountName,
       cardLabel: entry.creditCardLabel?.trim() || "Credito sin tarjeta",
       description: entry.description,
@@ -334,20 +342,9 @@ function buildActivityResults(activities: NeonActivity[], journalEntries: NeonJo
     );
 }
 
-function addDays(dateIso: string, days: number) {
-  const baseDate = new Date(`${dateIso}T00:00:00`);
-  baseDate.setDate(baseDate.getDate() + days);
-  return baseDate.toISOString().slice(0, 10);
-}
-
-function getMonthEnd(dateIso: string) {
-  const baseDate = new Date(`${dateIso}T00:00:00`);
-  return new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0).toISOString().slice(0, 10);
-}
-
 function filterDebtEntries(entries: PendingDebtItem[], range: DebtReportRange, today: string) {
-  const weekEnd = addDays(today, 6);
-  const monthEnd = getMonthEnd(today);
+  const weekEnd = addDaysToDateInputValue(today, 6);
+  const monthEnd = getMonthEndDateInputValue(today);
 
   return entries.filter((entry) => {
     if (!entry.dueDate) {
@@ -395,8 +392,8 @@ function filterEntriesByReportPeriod(entries: NeonJournalEntry[], period: Report
     return entries;
   }
 
-  const weekEnd = addDays(today, 6);
-  const monthEnd = getMonthEnd(today);
+  const weekEnd = addDaysToDateInputValue(today, 6);
+  const monthEnd = getMonthEndDateInputValue(today);
 
   return entries.filter((entry) => {
     if (period.range === "today") {
@@ -455,7 +452,7 @@ function getReportEntriesByFilters(
   accountId: number | null,
   searchTerm: string
 ) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayDateInputValue();
   return filterEntriesByReportPeriod(journalEntries, reportPeriodFilter, today).filter((entry) => {
     if (accountId && entry.accountId !== accountId) {
       return false;
@@ -512,6 +509,7 @@ export function buildReportStory(
       .map((entry) => ({
         movementId: entry.id,
         movementDate: entry.movementDate,
+        createdAt: entry.createdAt,
         movementType: entry.movementType,
         accountName: entry.accountName,
         centerScope: "all" as const,
@@ -555,6 +553,7 @@ export function buildReportStory(
         .map((allocation) => ({
           movementId: entry.id,
           movementDate: entry.movementDate,
+          createdAt: entry.createdAt,
           movementType: entry.movementType,
           accountName: entry.accountName,
           centerScope,
@@ -693,9 +692,9 @@ export function buildDashboardSummary(
   const pendingCollectionActivities = activities.filter(
     (activity) => activity.commercialStatus === "pendiente_de_cobrar" && activity.pendingAmount > 0
   );
-  const today = new Date().toISOString().slice(0, 10);
-  const weekEnd = addDays(today, 6);
-  const monthEnd = getMonthEnd(today);
+  const today = getTodayDateInputValue();
+  const weekEnd = addDaysToDateInputValue(today, 6);
+  const monthEnd = getMonthEndDateInputValue(today);
   const reportEntries = filterEntriesByReportPeriod(journalEntries, reportPeriodFilter, today);
   const pendingDebtEntries = buildPendingDebtItems(accounts, journalEntries)
     .sort((left, right) => {

@@ -1,7 +1,27 @@
 import { NeonActivity, NeonCategory, NeonExpense } from "./neon.types";
 
-export function getTodayDateInputValue() {
-  return new Date().toISOString().slice(0, 10);
+function padDatePart(value: number) {
+  return String(value).padStart(2, "0");
+}
+
+function parseLocalDateInput(dateIso: string) {
+  const [year, month, day] = dateIso.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
+export function getTodayDateInputValue(referenceDate = new Date()) {
+  return `${referenceDate.getFullYear()}-${padDatePart(referenceDate.getMonth() + 1)}-${padDatePart(referenceDate.getDate())}`;
+}
+
+export function addDaysToDateInputValue(dateIso: string, days: number) {
+  const baseDate = parseLocalDateInput(dateIso);
+  baseDate.setDate(baseDate.getDate() + days);
+  return getTodayDateInputValue(baseDate);
+}
+
+export function getMonthEndDateInputValue(dateIso: string) {
+  const baseDate = parseLocalDateInput(dateIso);
+  return getTodayDateInputValue(new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0));
 }
 
 export function formatMoney(value: number) {
@@ -17,11 +37,20 @@ export function formatActivityCode(activity: NeonActivity) {
 }
 
 export function formatShortDate(dateIso: string) {
+  const localDate = parseLocalDateInput(dateIso);
   return new Intl.DateTimeFormat("es-UY", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric"
-  }).format(new Date(dateIso));
+  }).format(localDate);
+}
+
+export function formatHour(dateTime: string) {
+  return new Intl.DateTimeFormat("es-UY", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(new Date(dateTime));
 }
 
 export function getDestinationLabel(expense: NeonExpense) {

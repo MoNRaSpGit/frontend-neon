@@ -1,6 +1,14 @@
 import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { ACTIVITY_TYPE_OPTIONS, COLORS } from "./neon.home.config";
-import { formatActivityCode, formatMoney, formatShortDate } from "./neon.home.helpers";
+import {
+  addDaysToDateInputValue,
+  formatActivityCode,
+  formatHour,
+  formatMoney,
+  formatShortDate,
+  getMonthEndDateInputValue,
+  getTodayDateInputValue
+} from "./neon.home.helpers";
 import { NeonAccount, NeonActivity, NeonClient, NeonJournalEntry } from "./neon.types";
 import { buildReportStory, DashboardSummary } from "./neon.v2.dashboard";
 import { createEmptyJournalAllocation, getJournalAllocationDestinationLabel } from "./neon.v2.journal";
@@ -154,17 +162,6 @@ function getPresetCostCenterOptions(scope: ReportCenterScope) {
   return [];
 }
 
-function addDays(dateIso: string, days: number) {
-  const baseDate = new Date(`${dateIso}T00:00:00`);
-  baseDate.setDate(baseDate.getDate() + days);
-  return baseDate.toISOString().slice(0, 10);
-}
-
-function getMonthEnd(dateIso: string) {
-  const baseDate = new Date(`${dateIso}T00:00:00`);
-  return new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 0).toISOString().slice(0, 10);
-}
-
 function matchesReportPeriod(entry: NeonJournalEntry, filter: ReportPeriodFilter) {
   if (filter.dateFrom && entry.movementDate < filter.dateFrom) {
     return false;
@@ -178,18 +175,18 @@ function matchesReportPeriod(entry: NeonJournalEntry, filter: ReportPeriodFilter
     return true;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getTodayDateInputValue();
 
   if (filter.range === "today") {
     return entry.movementDate === today;
   }
 
   if (filter.range === "week") {
-    return entry.movementDate >= today && entry.movementDate <= addDays(today, 6);
+    return entry.movementDate >= today && entry.movementDate <= addDaysToDateInputValue(today, 6);
   }
 
   if (filter.range === "month") {
-    return entry.movementDate >= today && entry.movementDate <= getMonthEnd(today);
+    return entry.movementDate >= today && entry.movementDate <= getMonthEndDateInputValue(today);
   }
 
   return true;
@@ -1431,6 +1428,7 @@ export function NeonV2HomeSections({
                       {formatShortDate(item.movementDate)} · {item.providerName || item.description || item.centerLabel}
                     </strong>
                     <span style={listItemMetaStyle}>
+                      Cargado {formatHour(item.createdAt)} ·{" "}
                       {item.movementType === "income" ? "Ingreso" : "Gasto"} · {item.accountName} · {item.centerLabel}
                     </span>
                     {item.description && item.providerName ? <span style={listItemMetaStyle}>{item.description}</span> : null}
@@ -1480,6 +1478,7 @@ export function NeonV2HomeSections({
                       <span style={listItemMetaStyle}>
                         {formatShortDate(entry.movementDate)} · {entry.description || "Sin descripcion"}
                       </span>
+                      <span style={listItemMetaStyle}>Cargado {formatHour(entry.createdAt)}</span>
                       {entry.movementType === "expense" &&
                       (entry.providerName || entry.documentRef || entry.quantity || entry.currencyCode || entry.creditCardLabel) ? (
                         <span style={listItemMetaStyle}>
@@ -1686,7 +1685,7 @@ export function NeonV2HomeSections({
             </div>
             <div style={listStyle}>
               {dashboard.pendingDebtEntries.map((entry) => {
-                const isOverdue = Boolean(entry.dueDate && entry.dueDate < new Date().toISOString().slice(0, 10));
+                const isOverdue = Boolean(entry.dueDate && entry.dueDate < getTodayDateInputValue());
 
                 return (
                   <div key={`debt-${entry.movementId}`} style={listItemStyle}>
@@ -1769,7 +1768,7 @@ export function NeonV2HomeSections({
                   <div>
                     <strong style={listItemTitleStyle}>{settlement.cardLabel}</strong>
                     <span style={listItemMetaStyle}>
-                      {formatShortDate(settlement.movementDate)} · Sale desde {settlement.sourceAccountName}
+                      {formatShortDate(settlement.movementDate)} · {formatHour(settlement.createdAt)} · Sale desde {settlement.sourceAccountName}
                     </span>
                     <span style={listItemMetaStyle}>{settlement.description || "Pago de tarjeta sin descripcion"}</span>
                   </div>

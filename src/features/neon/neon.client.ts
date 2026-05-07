@@ -1,177 +1,30 @@
-import { API_BASE_URL } from "../../shared/config/api";
-import { fetchWithAuth } from "../auth/auth.client";
 import {
   NeonAccount,
-  NeonAccountsResponse,
-  NeonActivitiesResponse,
   NeonActivity,
-  NeonCategoriesResponse,
   NeonCategory,
   NeonClient,
-  NeonClientsResponse,
   NeonExpense,
-  NeonExpensesResponse,
+  NeonJournalAllocation,
   NeonJournalAllocationInput,
   NeonJournalEntry,
-  NeonJournalResponse,
   NeonStatus
 } from "./neon.types";
 
-async function readJson<T>(response: Response): Promise<T> {
-  return (await response.json()) as T;
-}
+const DEMO_TENANT = {
+  id: 1,
+  name: "Neon Demo",
+  slug: "neon-demo"
+} as const;
 
-export async function getNeonStatus(): Promise<NeonStatus> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/status`);
-  if (!response.ok) {
-    throw new Error("No se pudo cargar el estado de neon");
-  }
-  return readJson<NeonStatus>(response);
-}
+const DEMO_USER = {
+  id: 1,
+  email: "neon.demo@saaspro.com",
+  membershipRole: "admin"
+} as const;
 
-export async function listNeonClients(): Promise<NeonClient[]> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/clients?limit=100`);
-  if (!response.ok) {
-    throw new Error("No se pudieron cargar los clientes");
-  }
-
-  const payload = await readJson<NeonClientsResponse>(response);
-  return payload.items;
-}
-
-export async function listNeonAccounts(): Promise<NeonAccount[]> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/accounts`);
-  if (!response.ok) {
-    throw new Error("No se pudieron cargar las cuentas");
-  }
-
-  const payload = await readJson<NeonAccountsResponse>(response);
-  return payload.items;
-}
-
-export async function createNeonAccount(input: {
-  name: string;
-  accountType: "cash" | "bank" | "credit";
-  openingBalance?: number;
-}) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/accounts`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
-
-  const payload = await readJson<{ item?: NeonAccount; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo crear la cuenta");
-  }
-
-  return payload.item;
-}
-
-export async function listNeonCategories(): Promise<NeonCategory[]> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/categories?movementType=expense`);
-  if (!response.ok) {
-    throw new Error("No se pudieron cargar las categorias");
-  }
-
-  const payload = await readJson<NeonCategoriesResponse>(response);
-  return payload.items;
-}
-
-export async function createNeonClient(input: { name: string; phone?: string; notes?: string }) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/clients`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
-
-  const payload = await readJson<{ item?: NeonClient; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo crear el cliente");
-  }
-
-  return payload.item;
-}
-
-export async function createNeonCategory(input: {
-  name: string;
-  movementType?: "income" | "expense";
-  classification?: "empresa" | "personal";
-}) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/categories`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
-
-  const payload = await readJson<{ item?: NeonCategory; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo crear la categoria");
-  }
-
-  return payload.item;
-}
-
-export async function listNeonActivities(): Promise<NeonActivity[]> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/activities?limit=100`);
-  if (!response.ok) {
-    throw new Error("No se pudieron cargar las actividades");
-  }
-
-  const payload = await readJson<NeonActivitiesResponse>(response);
-  return payload.items;
-}
-
-export async function getNeonActivity(activityId: number): Promise<NeonActivity> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/activities/${activityId}`);
-  const payload = await readJson<{ item?: NeonActivity; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo cargar la actividad");
-  }
-
-  return payload.item;
-}
-
-export async function listNeonExpenses(): Promise<NeonExpense[]> {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/expenses`);
-  if (!response.ok) {
-    throw new Error("No se pudieron cargar los gastos");
-  }
-
-  const payload = await readJson<NeonExpensesResponse>(response);
-  return payload.items;
-}
-
-export async function listNeonJournal(params?: {
-  limit?: number;
-  movementType?: "income" | "expense";
-  accountId?: number;
-  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
-  dateFrom?: string;
-  dateTo?: string;
-  search?: string;
-}): Promise<NeonJournalEntry[]> {
-  const searchParams = new URLSearchParams();
-
-  if (params?.limit) searchParams.set("limit", String(params.limit));
-  if (params?.movementType) searchParams.set("movementType", params.movementType);
-  if (params?.accountId) searchParams.set("accountId", String(params.accountId));
-  if (params?.costCenterType) searchParams.set("costCenterType", params.costCenterType);
-  if (params?.dateFrom) searchParams.set("dateFrom", params.dateFrom);
-  if (params?.dateTo) searchParams.set("dateTo", params.dateTo);
-  if (params?.search?.trim()) searchParams.set("search", params.search.trim());
-
-  const query = searchParams.toString();
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/journal${query ? `?${query}` : ""}`);
-  if (!response.ok) {
-    throw new Error("No se pudo cargar el libro diario");
-  }
-
-  const payload = await readJson<NeonJournalResponse>(response);
-  return payload.items;
-}
-
-export async function createNeonJournalEntry(input: {
+type MutableAccount = Omit<NeonAccount, "currentBalance">;
+type MutableActivity = Omit<NeonActivity, "collectedAmount" | "pendingAmount" | "payments">;
+type JournalCreationInput = {
   movementType: "income" | "expense";
   movementDate: string;
   accountId: number;
@@ -191,19 +44,733 @@ export async function createNeonJournalEntry(input: {
   kilometers?: number;
   liters?: number;
   allocations?: NeonJournalAllocationInput[];
-}) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/journal`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
+};
+type ExpenseCreationInput = {
+  destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
+  destinationActivityId?: number;
+  destinationLabel?: string;
+  totalAmount: number;
+};
 
-  const payload = await readJson<{ item?: NeonJournalEntry; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo registrar el movimiento");
+const demoNow = "2026-05-06T21:30:00.000-03:00";
+
+const seedClients: NeonClient[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    name: "Claudia Ferre",
+    phone: "099 111 222",
+    notes: "Cliente piloto Neon",
+    createdAt: "2026-05-02T10:00:00.000-03:00",
+    updatedAt: "2026-05-02T10:00:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    name: "Hotel Rambla",
+    phone: "098 222 333",
+    notes: "Eventos y alquileres",
+    createdAt: "2026-05-02T10:05:00.000-03:00",
+    updatedAt: "2026-05-02T10:05:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    name: "Carlos Pereira",
+    phone: "097 444 555",
+    notes: null,
+    createdAt: "2026-05-02T10:10:00.000-03:00",
+    updatedAt: "2026-05-02T10:10:00.000-03:00"
+  }
+];
+
+const seedAccounts: MutableAccount[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    name: "Caja $",
+    accountType: "cash",
+    openingBalance: 15000,
+    createdAt: "2026-05-02T09:00:00.000-03:00",
+    updatedAt: "2026-05-02T09:00:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    name: "BROU $",
+    accountType: "bank",
+    openingBalance: 42000,
+    createdAt: "2026-05-02T09:02:00.000-03:00",
+    updatedAt: "2026-05-02T09:02:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    name: "BBVA $",
+    accountType: "bank",
+    openingBalance: 18000,
+    createdAt: "2026-05-02T09:04:00.000-03:00",
+    updatedAt: "2026-05-02T09:04:00.000-03:00"
+  },
+  {
+    id: 4,
+    tenantId: DEMO_TENANT.id,
+    name: "ITAU U$S",
+    accountType: "bank",
+    openingBalance: 0,
+    createdAt: "2026-05-02T09:06:00.000-03:00",
+    updatedAt: "2026-05-02T09:06:00.000-03:00"
+  },
+  {
+    id: 5,
+    tenantId: DEMO_TENANT.id,
+    name: "Credito",
+    accountType: "credit",
+    openingBalance: 0,
+    createdAt: "2026-05-02T09:08:00.000-03:00",
+    updatedAt: "2026-05-02T09:08:00.000-03:00"
+  }
+];
+
+const seedCategories: NeonCategory[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    name: "Otros",
+    movementType: "expense",
+    classification: "empresa",
+    isSystem: true,
+    createdAt: "2026-05-02T09:20:00.000-03:00",
+    updatedAt: "2026-05-02T09:20:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    name: "Gastos personales",
+    movementType: "expense",
+    classification: "personal",
+    isSystem: true,
+    createdAt: "2026-05-02T09:21:00.000-03:00",
+    updatedAt: "2026-05-02T09:21:00.000-03:00"
+  }
+];
+
+const seedActivities: MutableActivity[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    activityNumber: 14,
+    activityYear: 2026,
+    activityDate: "2026-05-03",
+    description: "Pantalla LED feria de invierno",
+    clientId: 1,
+    clientName: "Claudia Ferre",
+    activityType: "neon",
+    commercialStatus: "pendiente_de_cobrar",
+    quotedAmount: 18500,
+    createdAt: "2026-05-03T11:00:00.000-03:00",
+    updatedAt: "2026-05-03T11:00:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    activityNumber: 15,
+    activityYear: 2026,
+    activityDate: "2026-05-04",
+    description: "Movil audiovisual corporativo",
+    clientId: 2,
+    clientName: "Hotel Rambla",
+    activityType: "movil_audiovisual",
+    commercialStatus: "pendiente_de_facturar",
+    quotedAmount: 26000,
+    createdAt: "2026-05-04T09:30:00.000-03:00",
+    updatedAt: "2026-05-04T09:30:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    activityNumber: 16,
+    activityYear: 2026,
+    activityDate: "2026-05-05",
+    description: "Alquiler estructura ALQ1",
+    clientId: 3,
+    clientName: "Carlos Pereira",
+    activityType: "otros",
+    commercialStatus: "facturado",
+    quotedAmount: 9800,
+    createdAt: "2026-05-05T12:10:00.000-03:00",
+    updatedAt: "2026-05-05T12:10:00.000-03:00"
+  }
+];
+
+const seedJournalEntries: NeonJournalEntry[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    movementType: "income",
+    movementDate: "2026-05-05",
+    accountId: 2,
+    accountName: "BROU $",
+    totalAmount: 12000,
+    description: "Seña actividad feria",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: null,
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "activity",
+    sourceActivityId: 1,
+    sourceActivityCode: "#14/2026",
+    sourceActivityDescription: "Pantalla LED feria de invierno",
+    allocations: [
+      {
+        id: 1,
+        destinationType: "activity",
+        destinationActivityId: 1,
+        destinationActivityCode: "#14/2026",
+        destinationActivityDescription: "Pantalla LED feria de invierno",
+        destinationLabel: null,
+        amount: 12000,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-05T19:45:00.000-03:00",
+    updatedAt: "2026-05-05T19:45:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    movementType: "expense",
+    movementDate: "2026-05-05",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 3400,
+    description: "Compra materiales y traslado",
+    providerName: "Barraca Central",
+    documentRef: "FC-2081",
+    quantity: 1,
+    unitLabel: "servicio",
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 2,
+        destinationType: "activity",
+        destinationActivityId: 1,
+        destinationActivityCode: "#14/2026",
+        destinationActivityDescription: "Pantalla LED feria de invierno",
+        destinationLabel: null,
+        amount: 2100,
+        metadata: null
+      },
+      {
+        id: 3,
+        destinationType: "vehicle",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Toyota RAA1111",
+        amount: 1300,
+        metadata: {
+          kilometers: 86,
+          liters: 12
+        }
+      }
+    ],
+    createdAt: "2026-05-05T20:10:00.000-03:00",
+    updatedAt: "2026-05-05T20:10:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    movementType: "expense",
+    movementDate: "2026-05-06",
+    accountId: 5,
+    accountName: "Credito",
+    totalAmount: 7800,
+    description: "Combustible y viaticos",
+    providerName: "Estacion Delta",
+    documentRef: "TK-9912",
+    quantity: 2,
+    unitLabel: "ticket",
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: "Visa Itau",
+    dueDate: "2026-05-07",
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 4,
+        destinationType: "vehicle",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Micro SAH2222",
+        amount: 5200,
+        metadata: {
+          kilometers: 210,
+          liters: 46
+        }
+      },
+      {
+        id: 5,
+        destinationType: "personal",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Casa",
+        amount: 2600,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-06T20:05:00.000-03:00",
+    updatedAt: "2026-05-06T20:05:00.000-03:00"
+  },
+  {
+    id: 4,
+    tenantId: DEMO_TENANT.id,
+    movementType: "income",
+    movementDate: "2026-05-06",
+    accountId: 3,
+    accountName: "BBVA $",
+    totalAmount: 9800,
+    description: "Ingreso alquiler ALQ1",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: null,
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 6,
+        destinationType: "rental",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "ALQ1",
+        amount: 9800,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-06T21:05:00.000-03:00",
+    updatedAt: "2026-05-06T21:05:00.000-03:00"
+  }
+];
+
+let clientsStore = clone(seedClients);
+let accountsStore = clone(seedAccounts);
+let categoriesStore = clone(seedCategories);
+let activitiesStore = clone(seedActivities);
+let journalStore = clone(seedJournalEntries);
+
+function clone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function nextId(items: Array<{ id: number }>) {
+  return items.reduce((max, item) => Math.max(max, item.id), 0) + 1;
+}
+
+function getAccountName(accountId: number) {
+  const account = accountsStore.find((item) => item.id === accountId);
+  if (!account) {
+    throw new Error("Cuenta no encontrada en demo");
   }
 
-  return payload.item;
+  return account.name;
+}
+
+function getActivityReference(activityId: number) {
+  const activity = activitiesStore.find((item) => item.id === activityId);
+  if (!activity) {
+    throw new Error("Actividad no encontrada en demo");
+  }
+
+  return {
+    activityId: activity.id,
+    code: `#${activity.activityNumber}/${activity.activityYear}`,
+    description: activity.description
+  };
+}
+
+function buildAllocations(
+  input: Pick<
+    JournalCreationInput,
+    "allocations" | "costCenterType" | "destinationActivityId" | "destinationLabel" | "liters" | "kilometers"
+  > | ExpenseCreationInput,
+  totalAmount: number
+) {
+  let normalizedAllocations: Array<
+    NeonJournalAllocationInput & {
+      kilometers?: number;
+      liters?: number;
+    }
+  > = [];
+
+  if ("allocations" in input) {
+    normalizedAllocations =
+      input.allocations && input.allocations.length > 0
+        ? input.allocations
+        : input.costCenterType
+          ? [
+              {
+                destinationType: input.costCenterType,
+                destinationActivityId: input.destinationActivityId,
+                destinationLabel: input.destinationLabel,
+                amount: totalAmount,
+                kilometers: input.kilometers,
+                liters: input.liters
+              }
+            ]
+          : [];
+  } else {
+    const expenseInput = input as ExpenseCreationInput;
+    normalizedAllocations = [
+      {
+        destinationType: expenseInput.destinationType,
+        destinationActivityId: expenseInput.destinationActivityId,
+        destinationLabel: expenseInput.destinationLabel,
+        amount: expenseInput.totalAmount,
+        kilometers: undefined,
+        liters: undefined
+      }
+    ];
+  }
+
+  const startingAllocationId =
+    journalStore.reduce((max, entry) => {
+      return Math.max(max, ...entry.allocations.map((allocation) => allocation.id));
+    }, 0) + 1;
+
+  return normalizedAllocations.map<NeonJournalAllocation>((allocation, index) => {
+    const activityReference =
+      allocation.destinationType === "activity" && allocation.destinationActivityId
+        ? getActivityReference(allocation.destinationActivityId)
+        : null;
+
+    return {
+      id: startingAllocationId + index,
+      destinationType: allocation.destinationType,
+      destinationActivityId: activityReference?.activityId || null,
+      destinationActivityCode: activityReference?.code || null,
+      destinationActivityDescription: activityReference?.description || null,
+      destinationLabel: activityReference ? null : allocation.destinationLabel?.trim() || null,
+      amount: Number(allocation.amount.toFixed(2)),
+      metadata:
+        allocation.destinationType === "vehicle"
+          ? {
+              kilometers: allocation.kilometers ?? null,
+              liters: allocation.liters ?? null
+            }
+          : null
+    };
+  });
+}
+
+function deriveAccounts(): NeonAccount[] {
+  return accountsStore.map((account) => {
+    const relatedEntries = journalStore.filter((entry) => entry.accountId === account.id);
+    const currentBalance = relatedEntries.reduce((sum, entry) => {
+      return sum + (entry.movementType === "income" ? entry.totalAmount : -entry.totalAmount);
+    }, account.openingBalance);
+
+    return {
+      ...account,
+      currentBalance: Number(currentBalance.toFixed(2))
+    };
+  });
+}
+
+function deriveActivities(): NeonActivity[] {
+  return activitiesStore.map((activity) => {
+    const collectedAmount = journalStore.reduce((sum, entry) => {
+      if (entry.movementType !== "income") {
+        return sum;
+      }
+
+      return (
+        sum +
+        entry.allocations
+          .filter((allocation) => allocation.destinationType === "activity" && allocation.destinationActivityId === activity.id)
+          .reduce((allocationSum, allocation) => allocationSum + allocation.amount, 0)
+      );
+    }, 0);
+
+    const pendingAmount = Math.max(Number((activity.quotedAmount - collectedAmount).toFixed(2)), 0);
+
+    return {
+      ...activity,
+      collectedAmount: Number(collectedAmount.toFixed(2)),
+      pendingAmount
+    };
+  });
+}
+
+function deriveExpenses(): NeonExpense[] {
+  return journalStore
+    .filter((entry) => entry.movementType === "expense" && entry.expenseKind !== "credit_settlement")
+    .flatMap((entry) =>
+      entry.allocations.map((allocation) => ({
+        id: allocation.id,
+        tenantId: entry.tenantId,
+        movementDate: entry.movementDate,
+        accountId: entry.accountId,
+        accountName: entry.accountName,
+        categoryId: 1,
+        categoryName: "Otros",
+        categoryClassification: allocation.destinationType === "personal" ? "personal" : "empresa",
+        totalAmount: allocation.amount,
+        description: entry.description,
+        destinationType: allocation.destinationType,
+        destinationActivityId: allocation.destinationActivityId,
+        destinationActivityCode: allocation.destinationActivityCode,
+        destinationActivityDescription: allocation.destinationActivityDescription,
+        destinationLabel: allocation.destinationLabel,
+        createdAt: entry.createdAt,
+        updatedAt: entry.updatedAt
+      }))
+    );
+}
+
+function filterJournalEntries(
+  entries: NeonJournalEntry[],
+  params?: {
+    limit?: number;
+    movementType?: "income" | "expense";
+    accountId?: number;
+    costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+  }
+) {
+  let nextEntries = [...entries];
+
+  if (params?.movementType) {
+    nextEntries = nextEntries.filter((entry) => entry.movementType === params.movementType);
+  }
+
+  if (params?.accountId) {
+    nextEntries = nextEntries.filter((entry) => entry.accountId === params.accountId);
+  }
+
+  if (params?.costCenterType) {
+    nextEntries = nextEntries.filter((entry) =>
+      entry.allocations.some((allocation) => allocation.destinationType === params.costCenterType)
+    );
+  }
+
+  if (params?.dateFrom) {
+    nextEntries = nextEntries.filter((entry) => entry.movementDate >= params.dateFrom!);
+  }
+
+  if (params?.dateTo) {
+    nextEntries = nextEntries.filter((entry) => entry.movementDate <= params.dateTo!);
+  }
+
+  if (params?.search?.trim()) {
+    const searchTerm = params.search.trim().toLowerCase();
+    nextEntries = nextEntries.filter((entry) =>
+      [
+        entry.description,
+        entry.providerName,
+        entry.documentRef,
+        entry.creditCardLabel,
+        entry.accountName,
+        ...entry.allocations.map((allocation) => allocation.destinationLabel || allocation.destinationActivityDescription || allocation.destinationActivityCode)
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(searchTerm)
+    );
+  }
+
+  nextEntries.sort((left, right) =>
+    left.movementDate !== right.movementDate ? right.movementDate.localeCompare(left.movementDate) : right.id - left.id
+  );
+
+  if (params?.limit) {
+    nextEntries = nextEntries.slice(0, params.limit);
+  }
+
+  return nextEntries;
+}
+
+export async function getNeonStatus(): Promise<NeonStatus> {
+  return {
+    module: "neon",
+    tenant: { ...DEMO_TENANT },
+    user: { ...DEMO_USER },
+    backend: {
+      database: "connected",
+      currentTimestamp: demoNow
+    },
+    phase: "shell"
+  };
+}
+
+export async function listNeonClients(): Promise<NeonClient[]> {
+  return clone(clientsStore).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function listNeonAccounts(): Promise<NeonAccount[]> {
+  return clone(deriveAccounts());
+}
+
+export async function createNeonAccount(input: {
+  name: string;
+  accountType: "cash" | "bank" | "credit";
+  openingBalance?: number;
+}) {
+  const timestamp = nowIso();
+  const account: MutableAccount = {
+    id: nextId(accountsStore),
+    tenantId: DEMO_TENANT.id,
+    name: input.name.trim(),
+    accountType: input.accountType,
+    openingBalance: Number((input.openingBalance || 0).toFixed(2)),
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  accountsStore.push(account);
+  return deriveAccounts().find((item) => item.id === account.id)!;
+}
+
+export async function listNeonCategories(): Promise<NeonCategory[]> {
+  return clone(categoriesStore);
+}
+
+export async function createNeonClient(input: { name: string; phone?: string; notes?: string }) {
+  const timestamp = nowIso();
+  const client: NeonClient = {
+    id: nextId(clientsStore),
+    tenantId: DEMO_TENANT.id,
+    name: input.name.trim(),
+    phone: input.phone?.trim() || null,
+    notes: input.notes?.trim() || null,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  clientsStore.push(client);
+  return clone(client);
+}
+
+export async function createNeonCategory(input: {
+  name: string;
+  movementType?: "income" | "expense";
+  classification?: "empresa" | "personal";
+}) {
+  const timestamp = nowIso();
+  const category: NeonCategory = {
+    id: nextId(categoriesStore),
+    tenantId: DEMO_TENANT.id,
+    name: input.name.trim(),
+    movementType: input.movementType || "expense",
+    classification: input.classification || "empresa",
+    isSystem: false,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  categoriesStore.push(category);
+  return clone(category);
+}
+
+export async function listNeonActivities(): Promise<NeonActivity[]> {
+  return clone(deriveActivities()).sort((left, right) => {
+    if (left.activityDate !== right.activityDate) {
+      return right.activityDate.localeCompare(left.activityDate);
+    }
+
+    return right.id - left.id;
+  });
+}
+
+export async function getNeonActivity(activityId: number): Promise<NeonActivity> {
+  const activity = deriveActivities().find((item) => item.id === activityId);
+  if (!activity) {
+    throw new Error("No se pudo cargar la actividad");
+  }
+
+  return clone(activity);
+}
+
+export async function listNeonExpenses(): Promise<NeonExpense[]> {
+  return clone(deriveExpenses());
+}
+
+export async function listNeonJournal(params?: {
+  limit?: number;
+  movementType?: "income" | "expense";
+  accountId?: number;
+  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}): Promise<NeonJournalEntry[]> {
+  return clone(filterJournalEntries(journalStore, params));
+}
+
+export async function createNeonJournalEntry(input: JournalCreationInput) {
+  const timestamp = nowIso();
+  const allocations = buildAllocations(input, input.totalAmount);
+  const sourceActivityAllocation =
+    allocations.length === 1 && allocations[0].destinationType === "activity" ? allocations[0] : null;
+
+  const entry: NeonJournalEntry = {
+    id: nextId(journalStore),
+    tenantId: DEMO_TENANT.id,
+    movementType: input.movementType,
+    movementDate: input.movementDate,
+    accountId: input.accountId,
+    accountName: getAccountName(input.accountId),
+    totalAmount: Number(input.totalAmount.toFixed(2)),
+    description: input.description?.trim() || null,
+    providerName: input.providerName?.trim() || null,
+    documentRef: input.documentRef?.trim() || null,
+    quantity: input.quantity ?? null,
+    unitLabel: input.unitLabel?.trim() || null,
+    currencyCode: input.currencyCode || null,
+    expenseKind: input.movementType === "expense" ? input.expenseKind || "operational" : null,
+    creditCardLabel: input.creditCardLabel?.trim() || null,
+    dueDate: input.dueDate || null,
+    sourceType: sourceActivityAllocation ? "activity" : "independent",
+    sourceActivityId: sourceActivityAllocation?.destinationActivityId || null,
+    sourceActivityCode: sourceActivityAllocation?.destinationActivityCode || null,
+    sourceActivityDescription: sourceActivityAllocation?.destinationActivityDescription || null,
+    allocations,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  journalStore.unshift(entry);
+  return clone(entry);
 }
 
 export async function createNeonActivity(input: {
@@ -214,18 +781,32 @@ export async function createNeonActivity(input: {
   quotedAmount: number;
   commercialStatus?: "pendiente_de_facturar" | "facturado" | "pendiente_de_cobrar" | "cobrado";
 }) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/activities`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
+  const timestamp = nowIso();
+  const activityYear = Number(input.activityDate.slice(0, 4));
+  const nextNumber =
+    activitiesStore
+      .filter((item) => item.activityYear === activityYear)
+      .reduce((max, item) => Math.max(max, item.activityNumber), 0) + 1;
+  const client = input.clientId ? clientsStore.find((item) => item.id === input.clientId) : null;
 
-  const payload = await readJson<{ item?: NeonActivity; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo crear la actividad");
-  }
+  const activity: MutableActivity = {
+    id: nextId(activitiesStore),
+    tenantId: DEMO_TENANT.id,
+    activityNumber: nextNumber,
+    activityYear,
+    activityDate: input.activityDate,
+    description: input.description.trim(),
+    clientId: client?.id || null,
+    clientName: client?.name || null,
+    activityType: input.activityType,
+    commercialStatus: input.commercialStatus || "pendiente_de_facturar",
+    quotedAmount: Number(input.quotedAmount.toFixed(2)),
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
 
-  return payload.item;
+  activitiesStore.unshift(activity);
+  return deriveActivities().find((item) => item.id === activity.id)!;
 }
 
 export async function createNeonExpense(input: {
@@ -238,18 +819,26 @@ export async function createNeonExpense(input: {
   destinationActivityId?: number;
   destinationLabel?: string;
 }) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/expenses`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
-  });
-
-  const payload = await readJson<{ item?: NeonExpense; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo registrar el gasto");
+  const category = categoriesStore.find((item) => item.id === input.categoryId);
+  if (!category) {
+    throw new Error("No se pudo registrar el gasto");
   }
 
-  return payload.item;
+  const entry = await createNeonJournalEntry({
+    movementType: "expense",
+    movementDate: input.expenseDate,
+    accountId: input.accountId,
+    totalAmount: input.totalAmount,
+    description: input.description,
+    expenseKind: "operational",
+    providerName: category.name,
+    currencyCode: "UYU",
+    costCenterType: input.destinationType,
+    destinationActivityId: input.destinationActivityId,
+    destinationLabel: input.destinationLabel
+  });
+
+  return deriveExpenses().find((expense) => expense.id === entry.allocations[0]?.id)!;
 }
 
 export async function createNeonActivityPayment(
@@ -261,16 +850,21 @@ export async function createNeonActivityPayment(
     description?: string;
   }
 ) {
-  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/neon/activities/${activityId}/payments`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input)
+  const activityReference = getActivityReference(activityId);
+  await createNeonJournalEntry({
+    movementType: "income",
+    movementDate: input.paymentDate,
+    accountId: input.accountId,
+    totalAmount: input.paidAmount,
+    description: input.description || `Pago ${activityReference.code}`,
+    allocations: [
+      {
+        destinationType: "activity",
+        destinationActivityId: activityId,
+        amount: input.paidAmount
+      }
+    ]
   });
 
-  const payload = await readJson<{ item?: NeonActivity; message?: string }>(response);
-  if (!response.ok || !payload.item) {
-    throw new Error(payload.message || "No se pudo registrar el pago");
-  }
-
-  return payload.item;
+  return getNeonActivity(activityId);
 }
