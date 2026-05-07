@@ -44,8 +44,52 @@ export const workspaceNavWrapStyle: CSSProperties = {
   width: "100%",
   maxWidth: 1180,
   margin: "0 auto",
+  display: "grid",
+  gap: 12
+};
+
+export const companySwitcherStyle: CSSProperties = {
   display: "flex",
   justifyContent: "center"
+};
+
+export const companySwitcherInnerStyle: CSSProperties = {
+  width: "100%",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 12,
+  padding: "12px 14px",
+  borderRadius: 22,
+  border: `1px solid ${COLORS.border}`,
+  background: "rgba(252, 250, 246, 0.96)",
+  boxShadow: "0 12px 26px rgba(32, 34, 38, 0.05)",
+  flexWrap: "wrap"
+};
+
+export const companySwitcherLabelStyle: CSSProperties = {
+  color: COLORS.inkSoft,
+  fontSize: 13,
+  fontWeight: 800,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase"
+};
+
+export const companySwitcherButtonsStyle: CSSProperties = {
+  display: "flex",
+  gap: 10,
+  flexWrap: "wrap"
+};
+
+export const companySwitcherButtonStyle: CSSProperties = {
+  minHeight: 40,
+  padding: "0 16px",
+  borderRadius: 999,
+  border: `1px solid ${COLORS.border}`,
+  background: COLORS.panel,
+  color: COLORS.ink,
+  fontWeight: 800,
+  cursor: "pointer"
 };
 
 export const workspaceNavStyle: CSSProperties = {
@@ -242,4 +286,44 @@ export const listItemMoneyStyle: CSSProperties = {
 export const emptyTextStyle: CSSProperties = {
   margin: 0,
   color: COLORS.inkMuted
+};
+
+export const modalOverlayStyle: CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(29, 36, 48, 0.38)",
+  display: "grid",
+  placeItems: "center",
+  padding: 20,
+  zIndex: 50
+};
+
+export const modalCardStyle: CSSProperties = {
+  width: "min(100%, 460px)",
+  padding: 22,
+  borderRadius: 24,
+  border: `1px solid ${COLORS.border}`,
+  background: COLORS.panel,
+  boxShadow: "0 24px 48px rgba(32, 34, 38, 0.18)",
+  display: "grid",
+  gap: 14
+};
+
+export const modalTitleStyle: CSSProperties = {
+  margin: 0,
+  color: COLORS.ink,
+  fontSize: 22
+};
+
+export const modalBodyStyle: CSSProperties = {
+  margin: 0,
+  color: COLORS.inkSoft,
+  lineHeight: 1.6
+};
+
+export const modalActionsStyle: CSSProperties = {
+  display: "flex",
+  justifyContent: "flex-end",
+  gap: 10,
+  flexWrap: "wrap"
 };

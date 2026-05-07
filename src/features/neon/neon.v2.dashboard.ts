@@ -5,7 +5,7 @@ import {
   getTodayDateInputValue
 } from "./neon.home.helpers";
 import { NeonAccount, NeonActivity, NeonJournalAllocation, NeonJournalEntry } from "./neon.types";
-import { DebtReportRange, ReportCenterScope, ReportPeriodFilter, ReportPeriodRange } from "./neon.v2.types";
+import { DebtReportRange, NeonCompanyKey, ReportCenterScope, ReportPeriodFilter, ReportPeriodRange } from "./neon.v2.types";
 
 export type DashboardBucket = {
   label: string;
@@ -154,6 +154,67 @@ export type DashboardSummary = {
   topIncomeActivities: DashboardBucket[];
   reportCenterOptions: ReportCenterOption[];
 };
+
+export type DerivedCommercialStatus = "pendiente_de_facturar" | "pendiente_de_cobrar" | "cobrado";
+
+export function getCompanyLabel(company: NeonCompanyKey) {
+  return company === "audiovisual" ? "Audiovisual" : "Neon";
+}
+
+export function deriveCommercialStatus(
+  activity: Pick<NeonActivity, "commercialStatus" | "pendingAmount" | "invoiceDate" | "invoicedAmount" | "invoiceCompanyKey">
+): DerivedCommercialStatus {
+  const hasInvoiceData = Boolean(activity.invoiceDate && activity.invoiceCompanyKey && activity.invoicedAmount !== null);
+  const shouldBehaveAsInvoiced =
+    hasInvoiceData ||
+    activity.commercialStatus === "facturado" ||
+    activity.commercialStatus === "pendiente_de_cobrar" ||
+    activity.commercialStatus === "cobrado";
+
+  if (!shouldBehaveAsInvoiced) {
+    return "pendiente_de_facturar";
+  }
+
+  return activity.pendingAmount > 0 ? "pendiente_de_cobrar" : "cobrado";
+}
+
+export function getCommercialStatusLabel(status: DerivedCommercialStatus) {
+  if (status === "pendiente_de_facturar") return "Pendiente de facturar";
+  if (status === "pendiente_de_cobrar") return "Pendiente de cobrar";
+  return "Cobrado";
+}
+
+export function getActivityCompany(activity: Pick<NeonActivity, "activityType">): NeonCompanyKey {
+  return activity.activityType === "movil_audiovisual" ? "audiovisual" : "neon";
+}
+
+export function filterActivitiesByCompany(activities: NeonActivity[], company: NeonCompanyKey) {
+  return activities.filter((activity) => (activity.companyKey || getActivityCompany(activity)) === company);
+}
+
+export function filterJournalEntriesByCompany(
+  journalEntries: NeonJournalEntry[],
+  activities: NeonActivity[],
+  company: NeonCompanyKey
+) {
+  const companyActivityIds = new Set(filterActivitiesByCompany(activities, company).map((activity) => activity.id));
+
+  return journalEntries.filter((entry) => {
+    if (entry.companyKey) {
+      return entry.companyKey === company;
+    }
+
+    if (entry.sourceActivityId && companyActivityIds.has(entry.sourceActivityId)) {
+      return true;
+    }
+
+    return entry.allocations.some(
+      (allocation) =>
+        allocation.destinationType === "activity" &&
+        Boolean(allocation.destinationActivityId && companyActivityIds.has(allocation.destinationActivityId))
+    );
+  });
+}
 
 function getAllocationLabel(allocation: NeonJournalAllocation) {
   if (allocation.destinationType === "activity") {
@@ -688,10 +749,8 @@ export function buildDashboardSummary(
     .filter((entry) => entry.movementType === "expense")
     .reduce((sum, entry) => sum + entry.totalAmount, 0);
 
-  const pendingBillingActivities = activities.filter((activity) => activity.commercialStatus === "pendiente_de_facturar");
-  const pendingCollectionActivities = activities.filter(
-    (activity) => activity.commercialStatus === "pendiente_de_cobrar" && activity.pendingAmount > 0
-  );
+  const pendingBillingActivities = activities.filter((activity) => deriveCommercialStatus(activity) === "pendiente_de_facturar");
+  const pendingCollectionActivities = activities.filter((activity) => deriveCommercialStatus(activity) === "pendiente_de_cobrar");
   const today = getTodayDateInputValue();
   const weekEnd = addDaysToDateInputValue(today, 6);
   const monthEnd = getMonthEndDateInputValue(today);

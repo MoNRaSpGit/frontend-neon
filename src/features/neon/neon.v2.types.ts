@@ -16,7 +16,9 @@ export type ActivityFormState = {
   clientId: string;
   activityType: "neon" | "movil_audiovisual" | "otros";
   quotedAmount: string;
-  commercialStatus: "pendiente_de_facturar" | "facturado" | "pendiente_de_cobrar" | "cobrado";
+  commercialStatus: "pendiente_de_facturar" | "facturado";
+  invoiceDate: string;
+  invoicedAmount: string;
 };
 
 export type JournalAllocationFormState = {
@@ -57,4 +59,31 @@ export type ReportPeriodFilter = {
 
 export type ReportCenterScope = "all" | "activity" | "vehicle" | "personal" | "rental" | "other";
 
-export type NeonWorkspaceView = "idle" | "overview" | "journal" | "activities" | "reports";
+export type NeonCostCenterScope = Exclude<ReportCenterScope, "all" | "activity">;
+
+export type NeonWorkspaceView = "idle" | "overview" | "journal" | "activities" | "reports" | "centers";
+
+export type NeonCompanyKey = "neon" | "audiovisual";
+
+export type CostCenterFormState = {
+  editingId: string | null;
+  scope: NeonCostCenterScope;
+  label: string;
+};
+
+export type NeonCostCenterRecord = {
+  id: string;
+  companyKey: NeonCompanyKey;
+  scope: NeonCostCenterScope;
+  label: string;
+  createdAt: string;
+};
+
+export type PendingDeleteCostCenterState = {
+  id: string;
+  label: string;
+} | null;
+
+export type PendingEditCostCenterState = {
+  id: string;
+} | null;

@@ -10,9 +10,20 @@ import {
   getTodayDateInputValue
 } from "./neon.home.helpers";
 import { NeonAccount, NeonActivity, NeonClient, NeonJournalEntry } from "./neon.types";
-import { buildReportStory, DashboardSummary } from "./neon.v2.dashboard";
+import {
+  buildReportStory,
+  DashboardSummary,
+  deriveCommercialStatus,
+  getCommercialStatusLabel,
+  getCompanyLabel
+} from "./neon.v2.dashboard";
 import { createEmptyJournalAllocation, getJournalAllocationDestinationLabel } from "./neon.v2.journal";
 import {
+  companySwitcherButtonStyle,
+  companySwitcherButtonsStyle,
+  companySwitcherInnerStyle,
+  companySwitcherLabelStyle,
+  companySwitcherStyle,
   contentGridStyle,
   dashboardGridStyle,
   emptyTextStyle,
@@ -28,6 +39,11 @@ import {
   metricCardStyle,
   metricLabelStyle,
   metricValueStyle,
+  modalActionsStyle,
+  modalBodyStyle,
+  modalCardStyle,
+  modalOverlayStyle,
+  modalTitleStyle,
   panelCaptionStyle,
   panelHeaderStyle,
   panelStyle,
@@ -43,10 +59,16 @@ import {
 import {
   AccountFormState,
   ActivityFormState,
+  CostCenterFormState,
   ClientFormState,
   DebtReportRange,
   JournalAllocationFormState,
   JournalFormState,
+  NeonCostCenterRecord,
+  NeonCompanyKey,
+  NeonCostCenterScope,
+  PendingEditCostCenterState,
+  PendingDeleteCostCenterState,
   NeonWorkspaceView,
   ReportCenterScope,
   ReportPeriodFilter,
@@ -63,6 +85,7 @@ type HomeSectionsProps = {
   accounts: NeonAccount[];
   activities: NeonActivity[];
   journalEntries: NeonJournalEntry[];
+  costCenters: NeonCostCenterRecord[];
   clientForm: ClientFormState;
   setClientForm: Dispatch<SetStateAction<ClientFormState>>;
   accountForm: AccountFormState;
@@ -71,6 +94,12 @@ type HomeSectionsProps = {
   setActivityForm: Dispatch<SetStateAction<ActivityFormState>>;
   journalForm: JournalFormState;
   setJournalForm: Dispatch<SetStateAction<JournalFormState>>;
+  costCenterForm: CostCenterFormState;
+  setCostCenterForm: Dispatch<SetStateAction<CostCenterFormState>>;
+  activeCompany: NeonCompanyKey;
+  setActiveCompany: Dispatch<SetStateAction<NeonCompanyKey>>;
+  pendingEditCostCenter: PendingEditCostCenterState;
+  pendingDeleteCostCenter: PendingDeleteCostCenterState;
   activeView: NeonWorkspaceView;
   setActiveView: Dispatch<SetStateAction<NeonWorkspaceView>>;
   debtReportRange: DebtReportRange;
@@ -83,6 +112,13 @@ type HomeSectionsProps = {
   onCreateAccount: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateActivity: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateJournalEntry: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onCreateCostCenter: (event: FormEvent<HTMLFormElement>) => void;
+  onEditCostCenter: (centerId: string) => void;
+  onCancelCostCenterEdit: () => void;
+  onConfirmCostCenterEdit: (event: FormEvent<HTMLFormElement>) => void;
+  onDeleteCostCenter: (centerId: string) => void;
+  onConfirmDeleteCostCenter: () => void;
+  onCancelDeleteCostCenter: () => void;
 };
 
 function updateJournalAllocation(
@@ -110,33 +146,37 @@ function getResultTone(value: number) {
   return COLORS.ink;
 }
 
-function getCenterScopeLabel(scope: ReportCenterScope) {
-  if (scope === "activity") return "Actividades";
-  if (scope === "vehicle") return "Vehiculos";
-  if (scope === "personal") return "Personal";
-  if (scope === "rental") return "Alquileres";
-  if (scope === "other") return "Otros";
-  return "Todos";
+function getCenterScopeSelectPlaceholder(scope: ReportCenterScope) {
+  if (scope === "activity") return "Elegir actividad";
+  if (scope === "vehicle") return "Elegir vehiculo";
+  if (scope === "personal") return "Elegir centro personal";
+  if (scope === "rental") return "Elegir alquiler";
+  if (scope === "other") return "Elegir centro";
+  return "Elegir centro";
 }
 
-function getActivityStatusLabel(status: ActivityFormState["commercialStatus"] | NeonActivity["commercialStatus"]) {
-  if (status === "pendiente_de_facturar") return "Pendiente de facturar";
-  if (status === "facturado") return "Facturado";
-  if (status === "pendiente_de_cobrar") return "Pendiente de cobrar";
-  return "Cobrado";
+function getInvoiceSummary(activity: Pick<NeonActivity, "invoiceDate" | "invoicedAmount" | "invoiceCompanyKey">) {
+  if (!activity.invoiceDate || activity.invoicedAmount === null || !activity.invoiceCompanyKey) {
+    return null;
+  }
+
+  return `Facturado ${formatShortDate(activity.invoiceDate)} · ${formatMoney(activity.invoicedAmount)} · ${getCompanyLabel(
+    activity.invoiceCompanyKey
+  )}`;
 }
 
 const WORKSPACE_VIEWS: Array<{ value: NeonWorkspaceView; label: string; description: string }> = [
   { value: "journal", label: "Diario", description: "Cuentas y carga de movimientos" },
   { value: "overview", label: "Resumen", description: "Metricas, deuda y panorama general" },
   { value: "activities", label: "Actividades", description: "Clientes y trabajos" },
-  { value: "reports", label: "Reportes", description: "Lectura financiera y operativa" }
+  { value: "reports", label: "Reportes", description: "Lectura financiera y operativa" },
+  { value: "centers", label: "Centros", description: "Centros de costo por empresa" }
+];
+const COMPANY_OPTIONS: Array<{ value: NeonCompanyKey; label: string; hint: string }> = [
+  { value: "neon", label: "Neon", hint: "Carteleria, neon y operacion general" },
+  { value: "audiovisual", label: "Audiovisual", hint: "Movil audiovisual y reportes separados" }
 ];
 
-const VEHICLE_COST_CENTER_OPTIONS = ["Toyota RAA1111", "Micro SAH2222", "Movil RAE2323"];
-const PERSONAL_COST_CENTER_OPTIONS = ["Casa", "Uso personal"];
-const RENTAL_COST_CENTER_OPTIONS = ["ALQ1", "ALQ2"];
-const OTHER_COST_CENTER_OPTIONS = ["Generador", "Herramientas", "OTROS1"];
 const SUGGESTED_ACCOUNT_PRESETS: Array<{ name: string; accountType: AccountFormState["accountType"] }> = [
   { name: "Caja $", accountType: "cash" },
   { name: "BROU $", accountType: "bank" },
@@ -150,16 +190,14 @@ const ACTIVITY_STATUS_OPTIONS: Array<{
   label: string;
 }> = [
   { value: "pendiente_de_facturar", label: "Pendiente de facturar" },
-  { value: "facturado", label: "Facturado" },
-  { value: "pendiente_de_cobrar", label: "Pendiente de cobrar" }
+  { value: "facturado", label: "Facturado" }
 ];
 
-function getPresetCostCenterOptions(scope: ReportCenterScope) {
-  if (scope === "vehicle") return VEHICLE_COST_CENTER_OPTIONS;
-  if (scope === "personal") return PERSONAL_COST_CENTER_OPTIONS;
-  if (scope === "rental") return RENTAL_COST_CENTER_OPTIONS;
-  if (scope === "other") return OTHER_COST_CENTER_OPTIONS;
-  return [];
+function getEditableCenterScopeLabel(scope: NeonCostCenterScope) {
+  if (scope === "vehicle") return "Vehiculos";
+  if (scope === "personal") return "Personal";
+  if (scope === "rental") return "Alquileres";
+  return "Otros";
 }
 
 function matchesReportPeriod(entry: NeonJournalEntry, filter: ReportPeriodFilter) {
@@ -202,6 +240,7 @@ export function NeonV2HomeSections({
   accounts,
   activities,
   journalEntries,
+  costCenters,
   clientForm,
   setClientForm,
   accountForm,
@@ -210,6 +249,12 @@ export function NeonV2HomeSections({
   setActivityForm,
   journalForm,
   setJournalForm,
+  costCenterForm,
+  setCostCenterForm,
+  activeCompany,
+  setActiveCompany,
+  pendingEditCostCenter,
+  pendingDeleteCostCenter,
   activeView,
   setActiveView,
   debtReportRange,
@@ -221,8 +266,16 @@ export function NeonV2HomeSections({
   onCreateClient,
   onCreateAccount,
   onCreateActivity,
-  onCreateJournalEntry
+  onCreateJournalEntry,
+  onCreateCostCenter,
+  onEditCostCenter,
+  onCancelCostCenterEdit,
+  onConfirmCostCenterEdit,
+  onDeleteCostCenter,
+  onConfirmDeleteCostCenter,
+  onCancelDeleteCostCenter
 }: HomeSectionsProps) {
+  const activeCompanyLabel = getCompanyLabel(activeCompany);
   const journalDifference = Number(journalForm.totalAmount || 0) - journalAllocationTotal;
   const selectedJournalAccount = accounts.find((account) => String(account.id) === journalForm.accountId);
   const journalUsesCredit = selectedJournalAccount?.accountType === "credit";
@@ -236,35 +289,47 @@ export function NeonV2HomeSections({
   const [reportCenterKey, setReportCenterKey] = useState("");
   const [reportAccountId, setReportAccountId] = useState("");
   const [reportSearch, setReportSearch] = useState("");
+  const costCenterOptionsByScope = useMemo(() => {
+    const grouped = {
+      vehicle: [] as string[],
+      personal: [] as string[],
+      rental: [] as string[],
+      other: [] as string[]
+    };
+
+    for (const center of costCenters) {
+      if (!grouped[center.scope].includes(center.label)) {
+        grouped[center.scope].push(center.label);
+      }
+    }
+
+    for (const scope of Object.keys(grouped) as NeonCostCenterScope[]) {
+      grouped[scope].sort((left, right) => left.localeCompare(right));
+    }
+
+    return grouped;
+  }, [costCenters]);
   const visibleReportCenterOptions = useMemo(
     () => {
       const filteredOptions = dashboard.reportCenterOptions.filter((option) =>
         reportCenterScopeDraft === "all" ? true : option.scope === reportCenterScopeDraft
       );
 
-      if (reportCenterScopeDraft !== "vehicle") {
-        const presetOptions = getPresetCostCenterOptions(reportCenterScopeDraft).filter(
-          (label) => !filteredOptions.some((option) => option.scope === reportCenterScopeDraft && option.label === label)
-        ).map((label) => ({
-          key: `${reportCenterScopeDraft}:${label}`,
-          label,
-          scope: reportCenterScopeDraft as Exclude<ReportCenterScope, "all" | "activity">
-        }));
-
-        return [...presetOptions, ...filteredOptions];
+      if (reportCenterScopeDraft === "all" || reportCenterScopeDraft === "activity") {
+        return filteredOptions;
       }
 
-      const presetOptions = VEHICLE_COST_CENTER_OPTIONS.filter(
-        (label) => !filteredOptions.some((option) => option.scope === "vehicle" && option.label === label)
-      ).map((label) => ({
-        key: `vehicle:${label}`,
-        label,
-        scope: "vehicle" as const
-      }));
+      const dynamicOptions = costCenterOptionsByScope[reportCenterScopeDraft]
+        .filter((label) => !filteredOptions.some((option) => option.scope === reportCenterScopeDraft && option.label === label))
+        .map((label) => ({
+          key: `${reportCenterScopeDraft}:${label}`,
+          label,
+          scope: reportCenterScopeDraft
+        }));
 
-      return [...presetOptions, ...filteredOptions];
+      return [...dynamicOptions, ...filteredOptions];
     },
-    [dashboard.reportCenterOptions, reportCenterScopeDraft]
+    [dashboard.reportCenterOptions, reportCenterScopeDraft, costCenterOptionsByScope]
   );
   const reportStory = useMemo(
     () =>
@@ -283,10 +348,41 @@ export function NeonV2HomeSections({
   const reportStoryIsActivity = reportStory.centerScope === "activity";
   const reportStoryIsRental = reportStory.centerScope === "rental";
   const reportStoryIsPersonal = reportStory.centerScope === "personal";
+  const pendingCommercialActivities = activities.filter((activity) => {
+    const status = deriveCommercialStatus(activity);
+    return status === "pendiente_de_facturar" || status === "pendiente_de_cobrar";
+  });
 
   return (
     <>
       <section style={workspaceNavWrapStyle}>
+        <div style={companySwitcherStyle}>
+          <div style={companySwitcherInnerStyle}>
+            <span style={companySwitcherLabelStyle}>Empresa activa: {activeCompanyLabel}</span>
+            <div style={companySwitcherButtonsStyle}>
+              {COMPANY_OPTIONS.map((company) => {
+                const isActive = activeCompany === company.value;
+
+                return (
+                  <button
+                    key={company.value}
+                    type="button"
+                    onClick={() => setActiveCompany(company.value)}
+                    style={{
+                      ...companySwitcherButtonStyle,
+                      background: isActive ? COLORS.button : companySwitcherButtonStyle.background,
+                      color: isActive ? COLORS.buttonText : companySwitcherButtonStyle.color,
+                      borderColor: isActive ? COLORS.button : COLORS.border
+                    }}
+                    title={company.hint}
+                  >
+                    {company.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
         <div style={workspaceNavStyle}>
           {WORKSPACE_VIEWS.map((view) => {
             const isActive = activeView === view.value;
@@ -315,7 +411,7 @@ export function NeonV2HomeSections({
         <article style={{ ...panelStyle, gap: 20 }}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Resumen</h2>
-            <span style={panelCaptionStyle}>Saldo y alertas principales para arrancar rapido.</span>
+            <span style={panelCaptionStyle}>Saldo y alertas principales para arrancar rapido en {activeCompanyLabel}.</span>
           </header>
 
           <div
@@ -367,6 +463,159 @@ export function NeonV2HomeSections({
           </div>
         </article>
       </section>
+      <section style={activeView === "centers" ? contentGridStyle : { display: "none" }}>
+        <article style={panelStyle}>
+          <header style={panelHeaderStyle}>
+            <h2 style={panelTitleStyle}>Centros de costo</h2>
+            <span style={panelCaptionStyle}>Alta, correccion y control de centros propios para {activeCompanyLabel}.</span>
+          </header>
+
+          <form onSubmit={onCreateCostCenter} style={formStyle}>
+            <label style={fieldStyle}>
+              <span>Tipo</span>
+              <select
+                value={costCenterForm.scope}
+                onChange={(event) =>
+                  setCostCenterForm((current) => ({
+                    ...current,
+                    scope: event.target.value as NeonCostCenterScope
+                  }))
+                }
+                style={inputStyle}
+              >
+                <option value="vehicle">Vehiculo</option>
+                <option value="personal">Personal</option>
+                <option value="rental">Alquiler</option>
+                <option value="other">Otro</option>
+              </select>
+            </label>
+            <label style={fieldStyle}>
+                <span>Nombre</span>
+                <input
+                  value={costCenterForm.label}
+                  onChange={(event) => setCostCenterForm((current) => ({ ...current, label: event.target.value, editingId: null }))}
+                  style={inputStyle}
+                  placeholder="UTE, OSE, Toyota, Otros..."
+                />
+              </label>
+            <button type="submit" style={primaryButtonStyle}>
+              Guardar centro
+            </button>
+          </form>
+
+          <div style={listStyle}>
+            {(["vehicle", "personal", "rental", "other"] as NeonCostCenterScope[]).map((scope) => {
+              const scopedCenters = costCenters.filter((center) => center.scope === scope);
+
+              return (
+                <div key={`cost-centers-${scope}`} style={subPanelStyle}>
+                  <h3 style={subPanelTitleStyle}>{getEditableCenterScopeLabel(scope)}</h3>
+                  <div style={listStyle}>
+                    {scopedCenters.map((center) => (
+                      <div key={center.id} style={listItemStyle}>
+                        <div>
+                          <strong style={listItemTitleStyle}>{center.label}</strong>
+                          <span style={listItemMetaStyle}>
+                            {activeCompanyLabel} · {scope === "other" ? "Centro generico" : getEditableCenterScopeLabel(scope)}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button type="button" onClick={() => onEditCostCenter(center.id)} style={secondaryButtonStyle}>
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDeleteCostCenter(center.id)}
+                            style={{
+                              ...secondaryButtonStyle,
+                              borderColor: COLORS.expenseAccent,
+                              color: COLORS.expenseAccent
+                            }}
+                          >
+                            Borrar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {scopedCenters.length === 0 ? (
+                      <p style={emptyTextStyle}>Todavia no hay centros de este tipo para esta empresa.</p>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      </section>
+      {pendingDeleteCostCenter ? (
+        <div style={modalOverlayStyle}>
+          <div style={modalCardStyle}>
+            <h3 style={modalTitleStyle}>Confirmar borrado</h3>
+            <p style={modalBodyStyle}>
+              Vas a borrar el centro de costo <strong>{pendingDeleteCostCenter.label}</strong>. Esta accion no se puede deshacer.
+            </p>
+            <div style={modalActionsStyle}>
+              <button type="button" onClick={onCancelDeleteCostCenter} style={secondaryButtonStyle}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={onConfirmDeleteCostCenter}
+                style={{
+                  ...primaryButtonStyle,
+                  background: COLORS.expenseAccent
+                }}
+              >
+                Si, borrar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {pendingEditCostCenter ? (
+        <div style={modalOverlayStyle}>
+          <div style={modalCardStyle}>
+            <h3 style={modalTitleStyle}>Editar centro de costo</h3>
+            <form onSubmit={onConfirmCostCenterEdit} style={{ display: "grid", gap: 14 }}>
+              <label style={fieldStyle}>
+                <span>Tipo</span>
+                <select
+                  value={costCenterForm.scope}
+                  onChange={(event) =>
+                    setCostCenterForm((current) => ({
+                      ...current,
+                      scope: event.target.value as NeonCostCenterScope
+                    }))
+                  }
+                  style={inputStyle}
+                >
+                  <option value="vehicle">Vehiculo</option>
+                  <option value="personal">Personal</option>
+                  <option value="rental">Alquiler</option>
+                  <option value="other">Otro</option>
+                </select>
+              </label>
+              <label style={fieldStyle}>
+                <span>Nombre</span>
+                <input
+                  value={costCenterForm.label}
+                  onChange={(event) => setCostCenterForm((current) => ({ ...current, label: event.target.value }))}
+                  style={inputStyle}
+                  placeholder="UTE, OSE, Toyota, Otros..."
+                />
+              </label>
+              <div style={modalActionsStyle}>
+                <button type="button" onClick={onCancelCostCenterEdit} style={secondaryButtonStyle}>
+                  Cancelar
+                </button>
+                <button type="submit" style={primaryButtonStyle}>
+                  Guardar cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
       <section style={activeView === "journal" ? contentGridStyle : { display: "none" }}>
         <article style={panelStyle}>
           <header style={panelHeaderStyle}>
@@ -747,7 +996,7 @@ export function NeonV2HomeSections({
                             style={inputStyle}
                           >
                             <option value="">Elegir vehiculo</option>
-                            {VEHICLE_COST_CENTER_OPTIONS.map((vehicleLabel) => (
+                            {costCenterOptionsByScope.vehicle.map((vehicleLabel) => (
                               <option key={`vehicle-option-${vehicleLabel}`} value={vehicleLabel}>
                                 {vehicleLabel}
                               </option>
@@ -770,7 +1019,7 @@ export function NeonV2HomeSections({
                             style={inputStyle}
                           >
                             <option value="">Elegir destino</option>
-                            {PERSONAL_COST_CENTER_OPTIONS.map((label) => (
+                            {costCenterOptionsByScope.personal.map((label) => (
                               <option key={`personal-option-${label}`} value={label}>
                                 {label}
                               </option>
@@ -793,7 +1042,7 @@ export function NeonV2HomeSections({
                             style={inputStyle}
                           >
                             <option value="">Elegir alquiler</option>
-                            {RENTAL_COST_CENTER_OPTIONS.map((label) => (
+                            {costCenterOptionsByScope.rental.map((label) => (
                               <option key={`rental-option-${label}`} value={label}>
                                 {label}
                               </option>
@@ -816,7 +1065,7 @@ export function NeonV2HomeSections({
                             style={inputStyle}
                           >
                             <option value="">Elegir destino</option>
-                            {OTHER_COST_CENTER_OPTIONS.map((label) => (
+                            {costCenterOptionsByScope.other.map((label) => (
                               <option key={`other-option-${label}`} value={label}>
                                 {label}
                               </option>
@@ -1020,6 +1269,31 @@ export function NeonV2HomeSections({
                   ))}
                 </select>
               </label>
+              {activityForm.commercialStatus === "facturado" ? (
+                <>
+                  <label style={fieldStyle}>
+                    <span>Fecha factura</span>
+                    <input
+                      type="date"
+                      value={activityForm.invoiceDate}
+                      onChange={(event) => setActivityForm((current) => ({ ...current, invoiceDate: event.target.value }))}
+                      style={inputStyle}
+                    />
+                  </label>
+                  <label style={fieldStyle}>
+                    <span>Importe facturado</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={activityForm.invoicedAmount}
+                      onChange={(event) => setActivityForm((current) => ({ ...current, invoicedAmount: event.target.value }))}
+                      style={inputStyle}
+                      placeholder="0"
+                    />
+                  </label>
+                </>
+              ) : null}
               <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
                 <span>Control automatico</span>
                 <input
@@ -1058,15 +1332,7 @@ export function NeonV2HomeSections({
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Actividades pendientes</h3>
             <div style={listStyle}>
-              {activities
-                .filter(
-                  (activity) =>
-                    activity.commercialStatus === "pendiente_de_facturar" ||
-                    activity.commercialStatus === "pendiente_de_cobrar" ||
-                    activity.commercialStatus === "facturado"
-                )
-                .slice(0, 12)
-                .map((activity) => (
+              {pendingCommercialActivities.slice(0, 12).map((activity) => (
                   <div key={`activity-pending-${activity.id}`} style={listItemStyle}>
                     <div>
                       <strong style={listItemTitleStyle}>
@@ -1074,8 +1340,10 @@ export function NeonV2HomeSections({
                       </strong>
                       <span style={listItemMetaStyle}>{activity.clientName || "Sin cliente"}</span>
                       <span style={listItemMetaStyle}>
-                        Estado: {getActivityStatusLabel(activity.commercialStatus)} · Cotizado {formatMoney(activity.quotedAmount)}
+                        Estado: {getCommercialStatusLabel(deriveCommercialStatus(activity))} · Cotizado {formatMoney(activity.quotedAmount)}
                       </span>
+                      {getInvoiceSummary(activity) ? <span style={listItemMetaStyle}>{getInvoiceSummary(activity)}</span> : null}
+                      <span style={listItemMetaStyle}>Estado operativo: {getCommercialStatusLabel(deriveCommercialStatus(activity))}</span>
                       <span style={listItemMetaStyle}>
                         Cobrado {formatMoney(activity.collectedAmount)} · Pendiente {formatMoney(activity.pendingAmount)}
                       </span>
@@ -1085,13 +1353,7 @@ export function NeonV2HomeSections({
                     </strong>
                   </div>
                 ))}
-              {!loading &&
-              activities.filter(
-                (activity) =>
-                  activity.commercialStatus === "pendiente_de_facturar" ||
-                  activity.commercialStatus === "pendiente_de_cobrar" ||
-                  activity.commercialStatus === "facturado"
-              ).length === 0 ? <p style={emptyTextStyle}>No hay actividades pendientes ahora.</p> : null}
+              {!loading && pendingCommercialActivities.length === 0 ? <p style={emptyTextStyle}>No hay actividades pendientes ahora.</p> : null}
             </div>
           </div>
 
@@ -1105,8 +1367,10 @@ export function NeonV2HomeSections({
                       {formatActivityCode(activity)} · {activity.description}
                     </strong>
                     <span style={listItemMetaStyle}>
-                      {activity.clientName || "Sin cliente"} · {getActivityStatusLabel(activity.commercialStatus)}
+                      {activity.clientName || "Sin cliente"} · {getCommercialStatusLabel(deriveCommercialStatus(activity))}
                     </span>
+                    {getInvoiceSummary(activity) ? <span style={listItemMetaStyle}>{getInvoiceSummary(activity)}</span> : null}
+                    <span style={listItemMetaStyle}>Estado operativo: {getCommercialStatusLabel(deriveCommercialStatus(activity))}</span>
                     <span style={listItemMetaStyle}>
                       Cotizado {formatMoney(activity.quotedAmount)} · Cobrado {formatMoney(activity.collectedAmount)} · Pendiente {formatMoney(activity.pendingAmount)}
                     </span>
@@ -1124,7 +1388,7 @@ export function NeonV2HomeSections({
         <article style={activeView === "reports" ? panelStyle : { ...panelStyle, display: "none" }}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Reportes</h2>
-            <span style={panelCaptionStyle}>Saldos, deudas, centros de costo y control comercial desde el libro diario.</span>
+            <span style={panelCaptionStyle}>Saldos, deudas, centros de costo y control comercial de {activeCompanyLabel}.</span>
           </header>
 
           <div style={subPanelStyle}>
@@ -1209,32 +1473,24 @@ export function NeonV2HomeSections({
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Gastos e ingresos por centro de costo</h3>
-            <div style={{ ...formStyle, marginBottom: 12 }}>
-              {(["activity", "vehicle", "personal", "rental", "other"] as ReportCenterScope[]).map((scope) => {
-                const isActive = reportCenterScopeDraft === scope;
-
-                return (
-                  <button
-                    key={`scope-${scope}`}
-                    type="button"
-                    onClick={() => {
-                      setReportCenterScopeDraft(scope);
-                      setReportCenterKeyDraft("");
-                    }}
-                    style={{
-                      ...secondaryButtonStyle,
-                      background: isActive ? COLORS.button : secondaryButtonStyle.background,
-                      color: isActive ? COLORS.buttonText : secondaryButtonStyle.color,
-                      borderColor: isActive ? COLORS.button : secondaryButtonStyle.borderColor
-                    }}
-                  >
-                    {getCenterScopeLabel(scope)}
-                  </button>
-                );
-              })}
-            </div>
-
             <div style={formStyle}>
+              <label style={fieldStyle}>
+                <span>Tipo de centro</span>
+                <select
+                  value={reportCenterScopeDraft}
+                  onChange={(event) => {
+                    setReportCenterScopeDraft(event.target.value as ReportCenterScope);
+                    setReportCenterKeyDraft("");
+                  }}
+                  style={inputStyle}
+                >
+                  <option value="activity">Actividades</option>
+                  <option value="vehicle">Vehiculos</option>
+                  <option value="personal">Personal</option>
+                  <option value="rental">Alquileres</option>
+                  <option value="other">Otros</option>
+                </select>
+              </label>
               <label style={fieldStyle}>
                 <span>Centro de costo</span>
                 <select
@@ -1242,7 +1498,7 @@ export function NeonV2HomeSections({
                   onChange={(event) => setReportCenterKeyDraft(event.target.value)}
                   style={inputStyle}
                 >
-                  <option value="">Elegir centro</option>
+                  <option value="">{getCenterScopeSelectPlaceholder(reportCenterScopeDraft)}</option>
                   {visibleReportCenterOptions.map((option) => (
                     <option key={option.key} value={option.label}>
                       {option.label}
@@ -1287,6 +1543,9 @@ export function NeonV2HomeSections({
                 Buscar
               </button>
             </div>
+            <span style={panelCaptionStyle}>
+              Primero elegis el tipo y despues el centro puntual. Esto ya toma los centros creados en la pestaña `Centros`.
+            </span>
           </div>
 
           <div style={subPanelStyle}>
@@ -1582,13 +1841,7 @@ export function NeonV2HomeSections({
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Actividades pendientes</h3>
             <div style={listStyle}>
-              {activities
-                .filter(
-                  (activity) =>
-                    activity.commercialStatus === "pendiente_de_facturar" || activity.commercialStatus === "pendiente_de_cobrar"
-                )
-                .slice(0, 12)
-                .map((activity) => (
+              {pendingCommercialActivities.slice(0, 12).map((activity) => (
                   <div key={`report-activity-pending-${activity.id}`} style={listItemStyle}>
                     <div>
                       <strong style={listItemTitleStyle}>
@@ -1596,16 +1849,16 @@ export function NeonV2HomeSections({
                       </strong>
                       <span style={listItemMetaStyle}>{activity.clientName || "Sin cliente"}</span>
                       <span style={listItemMetaStyle}>
-                        {getActivityStatusLabel(activity.commercialStatus)} · Cotizado {formatMoney(activity.quotedAmount)}
+                        {getCommercialStatusLabel(deriveCommercialStatus(activity))} · Cotizado {formatMoney(activity.quotedAmount)}
                       </span>
+                      {getInvoiceSummary(activity) ? <span style={listItemMetaStyle}>{getInvoiceSummary(activity)}</span> : null}
                     </div>
                     <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>
                       {formatMoney(activity.pendingAmount)}
                     </strong>
                   </div>
                 ))}
-              {activities.filter((activity) => activity.commercialStatus === "pendiente_de_facturar" || activity.commercialStatus === "pendiente_de_cobrar")
-                .length === 0 ? <p style={emptyTextStyle}>No hay actividades pendientes para controlar.</p> : null}
+              {pendingCommercialActivities.length === 0 ? <p style={emptyTextStyle}>No hay actividades pendientes para controlar.</p> : null}
             </div>
           </div>
 

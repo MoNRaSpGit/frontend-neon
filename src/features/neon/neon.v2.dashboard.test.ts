@@ -19,6 +19,7 @@ function createEntry(input: Partial<NeonJournalEntry> & Pick<NeonJournalEntry, "
   return {
     id: input.id,
     tenantId: 1,
+    companyKey: input.companyKey ?? "neon",
     movementType: input.movementType,
     movementDate: input.movementDate,
     accountId: input.accountId,
@@ -47,6 +48,7 @@ function createActivity(input: Partial<NeonActivity> & Pick<NeonActivity, "id" |
   return {
     id: input.id,
     tenantId: 1,
+    companyKey: input.companyKey ?? "neon",
     activityNumber: input.activityNumber,
     activityYear: input.activityYear,
     activityDate: input.activityDate ?? "2026-05-01",
@@ -56,6 +58,9 @@ function createActivity(input: Partial<NeonActivity> & Pick<NeonActivity, "id" |
     activityType: input.activityType ?? "neon",
     commercialStatus: input.commercialStatus ?? "pendiente_de_cobrar",
     quotedAmount: input.quotedAmount,
+    invoiceDate: input.invoiceDate ?? null,
+    invoicedAmount: input.invoicedAmount ?? null,
+    invoiceCompanyKey: input.invoiceCompanyKey ?? null,
     collectedAmount: input.collectedAmount ?? 0,
     pendingAmount: input.pendingAmount ?? input.quotedAmount,
     payments: input.payments ?? [],

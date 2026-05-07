@@ -61,6 +61,7 @@ export type NeonJournalAllocationInput = {
 export type NeonJournalEntry = {
   id: number;
   tenantId: number;
+  companyKey: "neon" | "audiovisual";
   movementType: "income" | "expense";
   movementDate: string;
   accountId: number;
@@ -111,6 +112,7 @@ export type NeonActivityPayment = {
 export type NeonActivity = {
   id: number;
   tenantId: number;
+  companyKey: "neon" | "audiovisual";
   activityNumber: number;
   activityYear: number;
   activityDate: string;
@@ -120,6 +122,9 @@ export type NeonActivity = {
   activityType: "neon" | "movil_audiovisual" | "otros";
   commercialStatus: "pendiente_de_facturar" | "facturado" | "pendiente_de_cobrar" | "cobrado";
   quotedAmount: number;
+  invoiceDate: string | null;
+  invoicedAmount: number | null;
+  invoiceCompanyKey: "neon" | "audiovisual" | null;
   collectedAmount: number;
   pendingAmount: number;
   payments?: NeonActivityPayment[];

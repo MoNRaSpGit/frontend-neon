@@ -13,18 +13,76 @@ import {
 import { getTodayDateInputValue, toTitleCase } from "./neon.home.helpers";
 import { pageStyle } from "./neon.home.styles";
 import { NeonAccount, NeonActivity, NeonClient, NeonJournalAllocationInput, NeonJournalEntry } from "./neon.types";
-import { buildDashboardSummary } from "./neon.v2.dashboard";
+import {
+  buildDashboardSummary,
+  filterActivitiesByCompany,
+  filterJournalEntriesByCompany
+} from "./neon.v2.dashboard";
 import { createEmptyJournalAllocation } from "./neon.v2.journal";
 import { NeonV2HomeSections } from "./neon.v2.sections";
 import {
   AccountFormState,
   ActivityFormState,
+  CostCenterFormState,
   ClientFormState,
   DebtReportRange,
   JournalFormState,
+  NeonCostCenterRecord,
+  NeonCompanyKey,
+  PendingEditCostCenterState,
+  PendingDeleteCostCenterState,
   NeonWorkspaceView,
   ReportPeriodFilter
 } from "./neon.v2.types";
+
+const ACTIVE_COMPANY_STORAGE_KEY = "neon-active-company-v1";
+const COST_CENTERS_STORAGE_KEY = "neon-cost-centers-v1";
+
+const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
+  { id: "neon-vehicle-toyota", companyKey: "neon", scope: "vehicle", label: "Toyota RAA1111", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "neon-vehicle-micro", companyKey: "neon", scope: "vehicle", label: "Micro SAH2222", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "neon-vehicle-movil", companyKey: "neon", scope: "vehicle", label: "Movil RAE2323", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "neon-personal-casa", companyKey: "neon", scope: "personal", label: "Casa", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "neon-personal-uso", companyKey: "neon", scope: "personal", label: "Uso personal", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "neon-rental-alq1", companyKey: "neon", scope: "rental", label: "ALQ1", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "neon-rental-alq2", companyKey: "neon", scope: "rental", label: "ALQ2", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "neon-other-otros", companyKey: "neon", scope: "other", label: "Otros", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "av-vehicle-camioneta", companyKey: "audiovisual", scope: "vehicle", label: "Camioneta AV1", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "av-personal-casa", companyKey: "audiovisual", scope: "personal", label: "Casa", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "av-rental-equipo", companyKey: "audiovisual", scope: "rental", label: "ALQ AV1", createdAt: "2026-05-02T09:00:00.000-03:00" },
+  { id: "av-other-otros", companyKey: "audiovisual", scope: "other", label: "Otros", createdAt: "2026-05-02T09:00:00.000-03:00" }
+];
+
+function getInitialActiveCompany(): NeonCompanyKey {
+  if (typeof window === "undefined") {
+    return "neon";
+  }
+
+  const storedValue = window.localStorage.getItem(ACTIVE_COMPANY_STORAGE_KEY);
+  return storedValue === "audiovisual" ? "audiovisual" : "neon";
+}
+
+function getInitialCostCenters(): NeonCostCenterRecord[] {
+  if (typeof window === "undefined") {
+    return DEFAULT_COST_CENTERS;
+  }
+
+  const storedValue = window.localStorage.getItem(COST_CENTERS_STORAGE_KEY);
+  if (!storedValue) {
+    return DEFAULT_COST_CENTERS;
+  }
+
+  try {
+    const parsed = JSON.parse(storedValue) as NeonCostCenterRecord[];
+    if (!Array.isArray(parsed)) {
+      return DEFAULT_COST_CENTERS;
+    }
+
+    return parsed;
+  } catch {
+    return DEFAULT_COST_CENTERS;
+  }
+}
 
 export function NeonHomePage() {
   const [loading, setLoading] = useState(true);
@@ -42,6 +100,10 @@ export function NeonHomePage() {
     dateFrom: "",
     dateTo: ""
   });
+  const [activeCompany, setActiveCompany] = useState<NeonCompanyKey>(getInitialActiveCompany);
+  const [costCenters, setCostCenters] = useState<NeonCostCenterRecord[]>(getInitialCostCenters);
+  const [pendingEditCostCenter, setPendingEditCostCenter] = useState<PendingEditCostCenterState>(null);
+  const [pendingDeleteCostCenter, setPendingDeleteCostCenter] = useState<PendingDeleteCostCenterState>(null);
   const [activeView, setActiveView] = useState<NeonWorkspaceView>("idle");
   const [clientForm, setClientForm] = useState<ClientFormState>({
     name: "",
@@ -59,7 +121,9 @@ export function NeonHomePage() {
     clientId: "",
     activityType: "neon",
     quotedAmount: "",
-    commercialStatus: "pendiente_de_facturar"
+    commercialStatus: "pendiente_de_facturar",
+    invoiceDate: getTodayDateInputValue(),
+    invoicedAmount: ""
   });
   const [journalForm, setJournalForm] = useState<JournalFormState>({
     movementType: "expense",
@@ -76,6 +140,11 @@ export function NeonHomePage() {
     creditCardLabel: "",
     dueDate: "",
     allocations: [createEmptyJournalAllocation()]
+  });
+  const [costCenterForm, setCostCenterForm] = useState<CostCenterFormState>({
+    editingId: null,
+    scope: "vehicle",
+    label: ""
   });
 
   const loadHomeData = useCallback(async () => {
@@ -109,6 +178,22 @@ export function NeonHomePage() {
   useEffect(() => {
     void loadHomeData();
   }, [loadHomeData]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(ACTIVE_COMPANY_STORAGE_KEY, activeCompany);
+  }, [activeCompany]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(COST_CENTERS_STORAGE_KEY, JSON.stringify(costCenters));
+  }, [costCenters]);
 
   async function handleCreateClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -181,6 +266,7 @@ export function NeonHomePage() {
 
     const description = activityForm.description.trim();
     const quotedAmount = Number(activityForm.quotedAmount);
+    const invoicedAmount = activityForm.invoicedAmount ? Number(activityForm.invoicedAmount) : null;
 
     if (!description) {
       toast.error("Falta la descripcion de la actividad");
@@ -192,15 +278,31 @@ export function NeonHomePage() {
       return;
     }
 
+    if (activityForm.commercialStatus === "facturado") {
+      if (!activityForm.invoiceDate) {
+        toast.error("Falta la fecha de facturacion");
+        return;
+      }
+
+      if (!Number.isFinite(invoicedAmount) || invoicedAmount === null || invoicedAmount < 0) {
+        toast.error("El importe facturado debe ser valido");
+        return;
+      }
+    }
+
     setSavingActivity(true);
     try {
       const createdActivity = await createNeonActivity({
         activityDate: activityForm.activityDate,
         description,
         clientId: activityForm.clientId ? Number(activityForm.clientId) : undefined,
+        companyKey: activeCompany,
         activityType: activityForm.activityType,
         quotedAmount,
-        commercialStatus: activityForm.commercialStatus
+        commercialStatus: activityForm.commercialStatus,
+        invoiceDate: activityForm.commercialStatus === "facturado" ? activityForm.invoiceDate : undefined,
+        invoicedAmount: activityForm.commercialStatus === "facturado" ? invoicedAmount ?? undefined : undefined,
+        invoiceCompanyKey: activityForm.commercialStatus === "facturado" ? activeCompany : undefined
       });
 
       setActivities((current) => [createdActivity, ...current]);
@@ -209,7 +311,9 @@ export function NeonHomePage() {
         activityDate: getTodayDateInputValue(),
         description: "",
         quotedAmount: "",
-        commercialStatus: "pendiente_de_facturar"
+        commercialStatus: "pendiente_de_facturar",
+        invoiceDate: getTodayDateInputValue(),
+        invoicedAmount: ""
       }));
       toast.success("Actividad guardada", { autoClose: 2400 });
     } catch (error) {
@@ -320,6 +424,7 @@ export function NeonHomePage() {
     setSavingJournal(true);
     try {
       const createdEntry = await createNeonJournalEntry({
+        companyKey: activeCompany,
         movementType: journalForm.movementType,
         movementDate: journalForm.movementDate,
         accountId: Number(journalForm.accountId),
@@ -373,9 +478,188 @@ export function NeonHomePage() {
     }
   }
 
+  function handleCreateCostCenter(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const label = costCenterForm.label.trim();
+    if (!label) {
+      toast.error("Falta el nombre del centro de costo");
+      return;
+    }
+
+    const normalizedLabel = toTitleCase(label);
+    const exists = costCenters.some(
+      (center) =>
+        center.id !== costCenterForm.editingId &&
+        center.companyKey === activeCompany &&
+        center.scope === costCenterForm.scope &&
+        center.label.toLowerCase() === normalizedLabel.toLowerCase()
+    );
+
+    if (exists) {
+      toast.error("Ese centro ya existe para esta empresa");
+      return;
+    }
+
+    const nextCenter: NeonCostCenterRecord = {
+      id: `${activeCompany}-${costCenterForm.scope}-${Date.now()}`,
+      companyKey: activeCompany,
+      scope: costCenterForm.scope,
+      label: normalizedLabel,
+      createdAt: new Date().toISOString()
+    };
+
+    setCostCenters((current) =>
+      [...current, nextCenter].sort((left, right) =>
+        left.scope !== right.scope ? left.scope.localeCompare(right.scope) : left.label.localeCompare(right.label)
+      )
+    );
+    setCostCenterForm({
+      editingId: null,
+      scope: "vehicle",
+      label: ""
+    });
+    toast.success("Centro de costo guardado", { autoClose: 2400 });
+  }
+
+  function handleEditCostCenter(centerId: string) {
+    const center = costCenters.find((item) => item.id === centerId && item.companyKey === activeCompany);
+    if (!center) {
+      toast.error("No se pudo cargar ese centro");
+      return;
+    }
+
+    const isUsedInJournal = journalEntries.some(
+      (entry) =>
+        entry.companyKey === center.companyKey &&
+        entry.allocations.some(
+          (allocation) => allocation.destinationType === center.scope && allocation.destinationLabel?.trim() === center.label
+        )
+    );
+
+    if (isUsedInJournal) {
+      toast.error("Ese centro ya tiene movimientos y no conviene editarlo");
+      return;
+    }
+
+    setCostCenterForm({
+      editingId: center.id,
+      scope: center.scope,
+      label: center.label
+    });
+    setPendingEditCostCenter({ id: center.id });
+  }
+
+  function handleCancelCostCenterEdit() {
+    setCostCenterForm({
+      editingId: null,
+      scope: "vehicle",
+      label: ""
+    });
+    setPendingEditCostCenter(null);
+  }
+
+  function handleConfirmCostCenterEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!costCenterForm.editingId || !pendingEditCostCenter) {
+      return;
+    }
+
+    const label = costCenterForm.label.trim();
+    if (!label) {
+      toast.error("Falta el nombre del centro de costo");
+      return;
+    }
+
+    const normalizedLabel = toTitleCase(label);
+    const exists = costCenters.some(
+      (center) =>
+        center.id !== costCenterForm.editingId &&
+        center.companyKey === activeCompany &&
+        center.scope === costCenterForm.scope &&
+        center.label.toLowerCase() === normalizedLabel.toLowerCase()
+    );
+
+    if (exists) {
+      toast.error("Ese centro ya existe para esta empresa");
+      return;
+    }
+
+    setCostCenters((current) =>
+      current
+        .map((center) =>
+          center.id === costCenterForm.editingId
+            ? {
+                ...center,
+                companyKey: activeCompany,
+                scope: costCenterForm.scope,
+                label: normalizedLabel
+              }
+            : center
+        )
+        .sort((left, right) => (left.scope !== right.scope ? left.scope.localeCompare(right.scope) : left.label.localeCompare(right.label)))
+    );
+    handleCancelCostCenterEdit();
+    toast.success("Centro de costo actualizado", { autoClose: 2400 });
+  }
+
+  function handleRequestDeleteCostCenter(centerId: string) {
+    const center = costCenters.find((item) => item.id === centerId && item.companyKey === activeCompany);
+    if (!center) {
+      toast.error("No se pudo encontrar ese centro");
+      return;
+    }
+
+    const isUsedInJournal = journalEntries.some(
+      (entry) =>
+        entry.companyKey === center.companyKey &&
+        entry.allocations.some(
+          (allocation) => allocation.destinationType === center.scope && allocation.destinationLabel?.trim() === center.label
+        )
+    );
+
+    if (isUsedInJournal) {
+      toast.error("Ese centro ya tiene movimientos y no conviene borrarlo");
+      return;
+    }
+
+    setPendingDeleteCostCenter({
+      id: center.id,
+      label: center.label
+    });
+  }
+
+  function handleConfirmDeleteCostCenter() {
+    if (!pendingDeleteCostCenter) {
+      return;
+    }
+
+    setCostCenters((current) => current.filter((item) => item.id !== pendingDeleteCostCenter.id));
+    if (costCenterForm.editingId === pendingDeleteCostCenter.id) {
+      handleCancelCostCenterEdit();
+    }
+    setPendingDeleteCostCenter(null);
+    toast.success("Centro de costo borrado", { autoClose: 2400 });
+  }
+
+  function handleCancelDeleteCostCenter() {
+    setPendingDeleteCostCenter(null);
+  }
+
+  const companyActivities = useMemo(() => filterActivitiesByCompany(activities, activeCompany), [activities, activeCompany]);
+  const companyJournalEntries = useMemo(
+    () => filterJournalEntriesByCompany(journalEntries, activities, activeCompany),
+    [journalEntries, activities, activeCompany]
+  );
+  const companyCostCenters = useMemo(
+    () => costCenters.filter((center) => center.companyKey === activeCompany),
+    [costCenters, activeCompany]
+  );
+
   const dashboard = useMemo(() => {
-    return buildDashboardSummary(accounts, activities, journalEntries, debtReportRange, reportPeriodFilter);
-  }, [accounts, activities, journalEntries, debtReportRange, reportPeriodFilter]);
+    return buildDashboardSummary(accounts, companyActivities, companyJournalEntries, debtReportRange, reportPeriodFilter);
+  }, [accounts, companyActivities, companyJournalEntries, debtReportRange, reportPeriodFilter]);
 
   const journalAllocationTotal = useMemo(
     () =>
@@ -396,8 +680,9 @@ export function NeonHomePage() {
         savingJournal={savingJournal}
         clients={clients}
         accounts={accounts}
-        activities={activities}
-        journalEntries={journalEntries}
+        activities={companyActivities}
+        journalEntries={companyJournalEntries}
+        costCenters={companyCostCenters}
         clientForm={clientForm}
         setClientForm={setClientForm}
         accountForm={accountForm}
@@ -406,6 +691,12 @@ export function NeonHomePage() {
         setActivityForm={setActivityForm}
         journalForm={journalForm}
         setJournalForm={setJournalForm}
+        costCenterForm={costCenterForm}
+        setCostCenterForm={setCostCenterForm}
+        activeCompany={activeCompany}
+        setActiveCompany={setActiveCompany}
+        pendingEditCostCenter={pendingEditCostCenter}
+        pendingDeleteCostCenter={pendingDeleteCostCenter}
         activeView={activeView}
         setActiveView={setActiveView}
         debtReportRange={debtReportRange}
@@ -418,6 +709,13 @@ export function NeonHomePage() {
         onCreateAccount={handleCreateAccount}
         onCreateActivity={handleCreateActivity}
         onCreateJournalEntry={handleCreateJournalEntry}
+        onCreateCostCenter={handleCreateCostCenter}
+        onEditCostCenter={handleEditCostCenter}
+        onCancelCostCenterEdit={handleCancelCostCenterEdit}
+        onConfirmCostCenterEdit={handleConfirmCostCenterEdit}
+        onDeleteCostCenter={handleRequestDeleteCostCenter}
+        onConfirmDeleteCostCenter={handleConfirmDeleteCostCenter}
+        onCancelDeleteCostCenter={handleCancelDeleteCostCenter}
       />
     </main>
   );

@@ -25,6 +25,7 @@ const DEMO_USER = {
 type MutableAccount = Omit<NeonAccount, "currentBalance">;
 type MutableActivity = Omit<NeonActivity, "collectedAmount" | "pendingAmount" | "payments">;
 type JournalCreationInput = {
+  companyKey?: "neon" | "audiovisual";
   movementType: "income" | "expense";
   movementDate: string;
   accountId: number;
@@ -160,6 +161,7 @@ const seedActivities: MutableActivity[] = [
   {
     id: 1,
     tenantId: DEMO_TENANT.id,
+    companyKey: "neon",
     activityNumber: 14,
     activityYear: 2026,
     activityDate: "2026-05-03",
@@ -169,12 +171,16 @@ const seedActivities: MutableActivity[] = [
     activityType: "neon",
     commercialStatus: "pendiente_de_cobrar",
     quotedAmount: 18500,
+    invoiceDate: "2026-05-04",
+    invoicedAmount: 18500,
+    invoiceCompanyKey: "neon",
     createdAt: "2026-05-03T11:00:00.000-03:00",
     updatedAt: "2026-05-03T11:00:00.000-03:00"
   },
   {
     id: 2,
     tenantId: DEMO_TENANT.id,
+    companyKey: "audiovisual",
     activityNumber: 15,
     activityYear: 2026,
     activityDate: "2026-05-04",
@@ -184,12 +190,16 @@ const seedActivities: MutableActivity[] = [
     activityType: "movil_audiovisual",
     commercialStatus: "pendiente_de_facturar",
     quotedAmount: 26000,
+    invoiceDate: null,
+    invoicedAmount: null,
+    invoiceCompanyKey: null,
     createdAt: "2026-05-04T09:30:00.000-03:00",
     updatedAt: "2026-05-04T09:30:00.000-03:00"
   },
   {
     id: 3,
     tenantId: DEMO_TENANT.id,
+    companyKey: "neon",
     activityNumber: 16,
     activityYear: 2026,
     activityDate: "2026-05-05",
@@ -199,6 +209,9 @@ const seedActivities: MutableActivity[] = [
     activityType: "otros",
     commercialStatus: "facturado",
     quotedAmount: 9800,
+    invoiceDate: "2026-05-05",
+    invoicedAmount: 9800,
+    invoiceCompanyKey: "neon",
     createdAt: "2026-05-05T12:10:00.000-03:00",
     updatedAt: "2026-05-05T12:10:00.000-03:00"
   }
@@ -208,6 +221,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 1,
     tenantId: DEMO_TENANT.id,
+    companyKey: "neon",
     movementType: "income",
     movementDate: "2026-05-05",
     accountId: 2,
@@ -244,6 +258,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 2,
     tenantId: DEMO_TENANT.id,
+    companyKey: "neon",
     movementType: "expense",
     movementDate: "2026-05-05",
     accountId: 1,
@@ -293,6 +308,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 3,
     tenantId: DEMO_TENANT.id,
+    companyKey: "neon",
     movementType: "expense",
     movementDate: "2026-05-06",
     accountId: 5,
@@ -342,6 +358,7 @@ const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 4,
     tenantId: DEMO_TENANT.id,
+    companyKey: "neon",
     movementType: "income",
     movementDate: "2026-05-06",
     accountId: 3,
@@ -380,11 +397,49 @@ const seedJournalEntries: NeonJournalEntry[] = [
 let clientsStore = clone(seedClients);
 let accountsStore = clone(seedAccounts);
 let categoriesStore = clone(seedCategories);
-let activitiesStore = clone(seedActivities);
-let journalStore = clone(seedJournalEntries);
+let activitiesStore = clone(seedActivities).map(normalizeActivity);
+let journalStore = clone(seedJournalEntries).map(normalizeJournalEntry);
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function getFallbackCompanyKeyFromActivityType(activityType: MutableActivity["activityType"]) {
+  return activityType === "movil_audiovisual" ? "audiovisual" : "neon";
+}
+
+function normalizeActivity(activity: MutableActivity): MutableActivity {
+  return {
+    ...activity,
+    companyKey: activity.companyKey || getFallbackCompanyKeyFromActivityType(activity.activityType),
+    invoiceDate: activity.invoiceDate || null,
+    invoicedAmount: typeof activity.invoicedAmount === "number" ? activity.invoicedAmount : null,
+    invoiceCompanyKey: activity.invoiceCompanyKey || null
+  };
+}
+
+function normalizeJournalEntry(entry: NeonJournalEntry): NeonJournalEntry {
+  let inferredCompanyKey = entry.companyKey;
+
+  if (!inferredCompanyKey) {
+    const relatedActivityIds = [
+      entry.sourceActivityId,
+      ...entry.allocations
+        .filter((allocation) => allocation.destinationType === "activity")
+        .map((allocation) => allocation.destinationActivityId)
+    ].filter((activityId): activityId is number => typeof activityId === "number");
+
+    const relatedActivity = relatedActivityIds
+      .map((activityId) => activitiesStore.find((activity) => activity.id === activityId))
+      .find(Boolean);
+
+    inferredCompanyKey = relatedActivity?.companyKey || "neon";
+  }
+
+  return {
+    ...entry,
+    companyKey: inferredCompanyKey
+  };
 }
 
 function canUseStorage() {
@@ -436,8 +491,9 @@ function restoreStores() {
       clientsStore = clone(snapshot.clients);
       accountsStore = clone(snapshot.accounts);
       categoriesStore = clone(snapshot.categories);
-      activitiesStore = clone(snapshot.activities);
-      journalStore = clone(snapshot.journal);
+      activitiesStore = clone(snapshot.activities).map(normalizeActivity);
+      journalStore = clone(snapshot.journal).map(normalizeJournalEntry);
+      persistStores();
     }
   } catch {
     window.localStorage.removeItem(DEMO_STORAGE_KEY);
@@ -474,6 +530,15 @@ function getActivityReference(activityId: number) {
     code: `#${activity.activityNumber}/${activity.activityYear}`,
     description: activity.description
   };
+}
+
+function getActivityCompanyKey(activityId: number) {
+  const activity = activitiesStore.find((item) => item.id === activityId);
+  if (!activity) {
+    throw new Error("Actividad no encontrada en demo");
+  }
+
+  return activity.companyKey;
 }
 
 function buildAllocations(
@@ -805,10 +870,21 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
   const allocations = buildAllocations(input, input.totalAmount);
   const sourceActivityAllocation =
     allocations.length === 1 && allocations[0].destinationType === "activity" ? allocations[0] : null;
+  const relatedActivityCompanyKey =
+    sourceActivityAllocation?.destinationActivityId
+      ? getActivityCompanyKey(sourceActivityAllocation.destinationActivityId)
+      : allocations.find((allocation) => allocation.destinationType === "activity" && allocation.destinationActivityId)
+        ?.destinationActivityId
+        ? getActivityCompanyKey(
+            allocations.find((allocation) => allocation.destinationType === "activity" && allocation.destinationActivityId)!
+              .destinationActivityId!
+          )
+        : null;
 
   const entry: NeonJournalEntry = {
     id: nextId(journalStore),
     tenantId: DEMO_TENANT.id,
+    companyKey: relatedActivityCompanyKey || input.companyKey || "neon",
     movementType: input.movementType,
     movementDate: input.movementDate,
     accountId: input.accountId,
@@ -841,9 +917,13 @@ export async function createNeonActivity(input: {
   activityDate: string;
   description: string;
   clientId?: number;
+  companyKey: "neon" | "audiovisual";
   activityType: "neon" | "movil_audiovisual" | "otros";
   quotedAmount: number;
   commercialStatus?: "pendiente_de_facturar" | "facturado" | "pendiente_de_cobrar" | "cobrado";
+  invoiceDate?: string;
+  invoicedAmount?: number;
+  invoiceCompanyKey?: "neon" | "audiovisual";
 }) {
   const timestamp = nowIso();
   const activityYear = Number(input.activityDate.slice(0, 4));
@@ -856,6 +936,7 @@ export async function createNeonActivity(input: {
   const activity: MutableActivity = {
     id: nextId(activitiesStore),
     tenantId: DEMO_TENANT.id,
+    companyKey: input.companyKey,
     activityNumber: nextNumber,
     activityYear,
     activityDate: input.activityDate,
@@ -865,6 +946,9 @@ export async function createNeonActivity(input: {
     activityType: input.activityType,
     commercialStatus: input.commercialStatus || "pendiente_de_facturar",
     quotedAmount: Number(input.quotedAmount.toFixed(2)),
+    invoiceDate: input.invoiceDate || null,
+    invoicedAmount: Number.isFinite(input.invoicedAmount) ? Number(input.invoicedAmount!.toFixed(2)) : null,
+    invoiceCompanyKey: input.invoiceCompanyKey || null,
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -880,6 +964,7 @@ export async function createNeonExpense(input: {
   expenseDate: string;
   totalAmount: number;
   description?: string;
+  companyKey?: "neon" | "audiovisual";
   destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
   destinationActivityId?: number;
   destinationLabel?: string;
@@ -890,6 +975,7 @@ export async function createNeonExpense(input: {
   }
 
   const entry = await createNeonJournalEntry({
+    companyKey: input.companyKey,
     movementType: "expense",
     movementDate: input.expenseDate,
     accountId: input.accountId,
@@ -917,6 +1003,7 @@ export async function createNeonActivityPayment(
 ) {
   const activityReference = getActivityReference(activityId);
   await createNeonJournalEntry({
+    companyKey: getActivityCompanyKey(activityId),
     movementType: "income",
     movementDate: input.paymentDate,
     accountId: input.accountId,
