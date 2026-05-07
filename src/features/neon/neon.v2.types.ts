@@ -57,4 +57,4 @@ export type ReportPeriodFilter = {
 
 export type ReportCenterScope = "all" | "activity" | "vehicle" | "personal" | "rental" | "other";
 
-export type NeonWorkspaceView = "overview" | "journal" | "activities" | "reports";
+export type NeonWorkspaceView = "idle" | "overview" | "journal" | "activities" | "reports";

@@ -5,6 +5,7 @@ export const pageStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "clamp(16px, 4vw, 32px)",
   display: "grid",
+  alignContent: "start",
   gap: 18,
   fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
   background:

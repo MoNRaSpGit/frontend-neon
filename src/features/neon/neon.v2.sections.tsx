@@ -10,10 +10,6 @@ import {
   emptyTextStyle,
   fieldStyle,
   formStyle,
-  heroBodyStyle,
-  heroCardStyle,
-  heroEyebrowStyle,
-  heroTitleStyle,
   inputStyle,
   listItemMetaStyle,
   listItemMoneyStyle,
@@ -293,15 +289,6 @@ export function NeonV2HomeSections({
 
   return (
     <>
-      <section style={heroCardStyle}>
-        <div style={heroEyebrowStyle}>Neon V2</div>
-        <h1 style={heroTitleStyle}>Libro diario + cuentas + centros de costo</h1>
-        <p style={heroBodyStyle}>
-          El nucleo ahora es el movimiento economico. Desde aca se cargan ingresos y gastos, se elige cuenta y se divide
-          cada registro entre actividades, vehiculos, personal u otros centros.
-        </p>
-      </section>
-
       <section style={workspaceNavWrapStyle}>
         <div style={workspaceNavStyle}>
           {WORKSPACE_VIEWS.map((view) => {

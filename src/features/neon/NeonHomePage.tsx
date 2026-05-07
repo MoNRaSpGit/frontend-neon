@@ -42,7 +42,7 @@ export function NeonHomePage() {
     dateFrom: "",
     dateTo: ""
   });
-  const [activeView, setActiveView] = useState<NeonWorkspaceView>("journal");
+  const [activeView, setActiveView] = useState<NeonWorkspaceView>("idle");
   const [clientForm, setClientForm] = useState<ClientFormState>({
     name: "",
     phone: "",

@@ -12,7 +12,7 @@ const DEMO_CREDENTIALS = {
   password: "demo12345"
 } as const;
 
-const DEMO_ACCESS_ENABLED = false;
+const DEMO_ACCESS_ENABLED = true;
 
 export function LoginPage() {
   const navigate = useNavigate();
