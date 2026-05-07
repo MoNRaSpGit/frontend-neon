@@ -32,6 +32,23 @@ export function formatMoney(value: number) {
   }).format(value);
 }
 
+export function formatSignedMoney(value: number) {
+  if (value > 0) {
+    return `+${formatMoney(value)}`;
+  }
+
+  if (value < 0) {
+    return `-${formatMoney(Math.abs(value))}`;
+  }
+
+  return formatMoney(0);
+}
+
+export function formatDirectionalMoney(value: number, direction: "income" | "expense") {
+  const absoluteValue = Math.abs(value);
+  return direction === "income" ? `+${formatMoney(absoluteValue)}` : `-${formatMoney(absoluteValue)}`;
+}
+
 export function formatActivityCode(activity: NeonActivity) {
   return `#${activity.activityNumber}/${activity.activityYear}`;
 }

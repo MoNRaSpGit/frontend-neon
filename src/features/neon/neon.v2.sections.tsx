@@ -4,7 +4,9 @@ import {
   addDaysToDateInputValue,
   formatActivityCode,
   formatHour,
+  formatDirectionalMoney,
   formatMoney,
+  formatSignedMoney,
   formatShortDate,
   getMonthEndDateInputValue,
   getTodayDateInputValue
@@ -433,10 +435,13 @@ export function NeonV2HomeSections({
             <div style={listItemStyle}>
               <div>
                 <strong style={listItemTitleStyle}>Movimiento acumulado</strong>
-                <span style={listItemMetaStyle}>Ingresos {formatMoney(dashboard.totalIncome)} / Gastos {formatMoney(dashboard.totalExpense)}</span>
+                <span style={listItemMetaStyle}>
+                  Ingresos {formatDirectionalMoney(dashboard.totalIncome, "income")} / Gastos{" "}
+                  {formatDirectionalMoney(dashboard.totalExpense, "expense")}
+                </span>
               </div>
               <strong style={{ ...listItemMoneyStyle, color: getResultTone(dashboard.totalIncome - dashboard.totalExpense) }}>
-                {formatMoney(dashboard.totalIncome - dashboard.totalExpense)}
+                {formatSignedMoney(dashboard.totalIncome - dashboard.totalExpense)}
               </strong>
             </div>
             <div style={listItemStyle}>
@@ -1125,7 +1130,7 @@ export function NeonV2HomeSections({
                     color: Math.round(journalDifference * 100) === 0 ? COLORS.incomeAccent : COLORS.expenseAccent
                   }}
                 >
-                  Diferencia: {formatMoney(journalDifference)}
+                  Diferencia: {formatSignedMoney(journalDifference)}
                 </span>
               </div>
             </div>
@@ -1448,12 +1453,16 @@ export function NeonV2HomeSections({
             <div style={dashboardGridStyle}>
               <article style={{ ...metricCardStyle, background: COLORS.incomeBg }}>
                 <span style={metricLabelStyle}>Total ingresos</span>
-                <strong style={metricValueStyle}>{formatMoney(dashboard.reportIncomeAmount)}</strong>
+                <strong style={{ ...metricValueStyle, color: COLORS.incomeAccent }}>
+                  {formatDirectionalMoney(dashboard.reportIncomeAmount, "income")}
+                </strong>
                 <span style={metricCaptionStyle}>Ingresos del periodo filtrado</span>
               </article>
               <article style={{ ...metricCardStyle, background: COLORS.expenseBg }}>
                 <span style={metricLabelStyle}>Total gastos</span>
-                <strong style={metricValueStyle}>{formatMoney(dashboard.reportExpenseAmount)}</strong>
+                <strong style={{ ...metricValueStyle, color: COLORS.expenseAccent }}>
+                  {formatDirectionalMoney(dashboard.reportExpenseAmount, "expense")}
+                </strong>
                 <span style={metricCaptionStyle}>Gastos del periodo filtrado</span>
               </article>
               <article style={{ ...metricCardStyle, background: COLORS.accountBg }}>
@@ -1560,7 +1569,9 @@ export function NeonV2HomeSections({
                     <>
                       <article style={{ ...metricCardStyle, background: COLORS.expenseBg }}>
                         <span style={metricLabelStyle}>Total gastado</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalExpenseAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.expenseAccent }}>
+                          {formatDirectionalMoney(reportStory.totalExpenseAmount, "expense")}
+                        </strong>
                         <span style={metricCaptionStyle}>{reportStory.movementCount} movimiento(s) del vehiculo</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.panelAlt }}>
@@ -1590,18 +1601,22 @@ export function NeonV2HomeSections({
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.incomeBg }}>
                         <span style={metricLabelStyle}>Total cobrado</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalIncomeAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.incomeAccent }}>
+                          {formatDirectionalMoney(reportStory.totalIncomeAmount, "income")}
+                        </strong>
                         <span style={metricCaptionStyle}>Solo lo asignado a esta actividad</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.expenseBg }}>
                         <span style={metricLabelStyle}>Total gastado</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalExpenseAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.expenseAccent }}>
+                          {formatDirectionalMoney(reportStory.totalExpenseAmount, "expense")}
+                        </strong>
                         <span style={metricCaptionStyle}>Gastos imputados a la actividad</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.accountBg }}>
                         <span style={metricLabelStyle}>Resultado</span>
                         <strong style={{ ...metricValueStyle, color: getResultTone(reportStory.balanceAmount) }}>
-                          {formatMoney(reportStory.balanceAmount)}
+                          {formatSignedMoney(reportStory.balanceAmount)}
                         </strong>
                         <span style={metricCaptionStyle}>Cobrado menos gastado</span>
                       </article>
@@ -1615,18 +1630,22 @@ export function NeonV2HomeSections({
                     <>
                       <article style={{ ...metricCardStyle, background: COLORS.incomeBg }}>
                         <span style={metricLabelStyle}>Ingresos por alquiler</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalIncomeAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.incomeAccent }}>
+                          {formatDirectionalMoney(reportStory.totalIncomeAmount, "income")}
+                        </strong>
                         <span style={metricCaptionStyle}>{reportStory.movementCount} movimiento(s) del alquiler</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.expenseBg }}>
                         <span style={metricLabelStyle}>Gastos del alquiler</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalExpenseAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.expenseAccent }}>
+                          {formatDirectionalMoney(reportStory.totalExpenseAmount, "expense")}
+                        </strong>
                         <span style={metricCaptionStyle}>Costos asignados a este alquiler</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.accountBg }}>
                         <span style={metricLabelStyle}>Resultado del alquiler</span>
                         <strong style={{ ...metricValueStyle, color: getResultTone(reportStory.balanceAmount) }}>
-                          {formatMoney(reportStory.balanceAmount)}
+                          {formatSignedMoney(reportStory.balanceAmount)}
                         </strong>
                         <span style={metricCaptionStyle}>Ingreso menos gasto</span>
                       </article>
@@ -1635,18 +1654,22 @@ export function NeonV2HomeSections({
                     <>
                       <article style={{ ...metricCardStyle, background: COLORS.expenseBg }}>
                         <span style={metricLabelStyle}>Gasto personal</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalExpenseAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.expenseAccent }}>
+                          {formatDirectionalMoney(reportStory.totalExpenseAmount, "expense")}
+                        </strong>
                         <span style={metricCaptionStyle}>{reportStory.movementCount} movimiento(s)</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.accountBg }}>
                         <span style={metricLabelStyle}>Ingresos personales</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalIncomeAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.incomeAccent }}>
+                          {formatDirectionalMoney(reportStory.totalIncomeAmount, "income")}
+                        </strong>
                         <span style={metricCaptionStyle}>Si hubo entradas imputadas aqui</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.panelAlt }}>
                         <span style={metricLabelStyle}>Impacto neto</span>
                         <strong style={{ ...metricValueStyle, color: getResultTone(reportStory.balanceAmount) }}>
-                          {formatMoney(reportStory.balanceAmount)}
+                          {formatSignedMoney(reportStory.balanceAmount)}
                         </strong>
                         <span style={metricCaptionStyle}>Entradas menos gastos personales</span>
                       </article>
@@ -1655,18 +1678,22 @@ export function NeonV2HomeSections({
                     <>
                       <article style={{ ...metricCardStyle, background: COLORS.expenseBg }}>
                         <span style={metricLabelStyle}>Total gastado</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalExpenseAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.expenseAccent }}>
+                          {formatDirectionalMoney(reportStory.totalExpenseAmount, "expense")}
+                        </strong>
                         <span style={metricCaptionStyle}>{reportStory.movementCount} movimiento(s)</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.incomeBg }}>
                         <span style={metricLabelStyle}>Total ingresado</span>
-                        <strong style={metricValueStyle}>{formatMoney(reportStory.totalIncomeAmount)}</strong>
+                        <strong style={{ ...metricValueStyle, color: COLORS.incomeAccent }}>
+                          {formatDirectionalMoney(reportStory.totalIncomeAmount, "income")}
+                        </strong>
                         <span style={metricCaptionStyle}>Solo lo asignado a este centro</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.accountBg }}>
                         <span style={metricLabelStyle}>Resultado</span>
                         <strong style={{ ...metricValueStyle, color: getResultTone(reportStory.balanceAmount) }}>
-                          {formatMoney(reportStory.balanceAmount)}
+                          {formatSignedMoney(reportStory.balanceAmount)}
                         </strong>
                         <span style={metricCaptionStyle}>Ingreso menos gasto</span>
                       </article>
@@ -1710,7 +1737,9 @@ export function NeonV2HomeSections({
                       color: item.movementType === "income" ? COLORS.incomeAccent : COLORS.expenseAccent
                     }}
                   >
-                    {formatMoney(item.amount)}
+                    {item.movementType === "income"
+                      ? formatDirectionalMoney(item.amount, "income")
+                      : formatDirectionalMoney(item.amount, "expense")}
                   </strong>
                 </div>
               )) : null}
@@ -1765,7 +1794,9 @@ export function NeonV2HomeSections({
                         color: entry.movementType === "income" ? COLORS.incomeAccent : COLORS.expenseAccent
                       }}
                     >
-                      {formatMoney(entry.totalAmount)}
+                      {entry.movementType === "income"
+                        ? formatDirectionalMoney(entry.totalAmount, "income")
+                        : formatDirectionalMoney(entry.totalAmount, "expense")}
                     </strong>
                   </div>
                 );
@@ -1805,10 +1836,12 @@ export function NeonV2HomeSections({
                       {account.accountName} · {getAccountTypeLabel(account.accountType)}
                     </strong>
                     <span style={listItemMetaStyle}>
-                      Inicial {formatMoney(account.openingBalance)} · Ingresos {formatMoney(account.incomeAmount)}
+                      Inicial {formatMoney(account.openingBalance)} · Ingresos{" "}
+                      {formatDirectionalMoney(account.incomeAmount, "income")}
                     </span>
                     <span style={listItemMetaStyle}>
-                      Gastos {formatMoney(account.expenseAmount)} · Flujo {formatMoney(account.netFlowAmount)}
+                      Gastos {formatDirectionalMoney(account.expenseAmount, "expense")} · Flujo{" "}
+                      {formatSignedMoney(account.netFlowAmount)}
                     </span>
                   </div>
                   <strong style={{ ...listItemMoneyStyle, color: getResultTone(account.currentBalance) }}>
@@ -1829,7 +1862,9 @@ export function NeonV2HomeSections({
                     <strong style={listItemTitleStyle}>{bucket.label}</strong>
                     <span style={listItemMetaStyle}>{bucket.count} linea(s) de gasto</span>
                   </div>
-                  <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(bucket.amount)}</strong>
+                  <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>
+                    {formatDirectionalMoney(bucket.amount, "expense")}
+                  </strong>
                 </div>
               ))}
               {dashboard.topExpenseCenters.length === 0 ? (
@@ -1871,14 +1906,15 @@ export function NeonV2HomeSections({
                     <strong style={listItemTitleStyle}>{activity.activityLabel}</strong>
                     <span style={listItemMetaStyle}>{activity.clientName || "Sin cliente"}</span>
                     <span style={listItemMetaStyle}>
-                      Ingresos {formatMoney(activity.incomeAmount)} · Gastos {formatMoney(activity.expenseAmount)}
+                      Ingresos {formatDirectionalMoney(activity.incomeAmount, "income")} · Gastos{" "}
+                      {formatDirectionalMoney(activity.expenseAmount, "expense")}
                     </span>
                     <span style={listItemMetaStyle}>
                       Cotizado {formatMoney(activity.quotedAmount)} · Pendiente {formatMoney(activity.pendingAmount)}
                     </span>
                   </div>
                   <strong style={{ ...listItemMoneyStyle, color: getResultTone(activity.resultAmount) }}>
-                    {formatMoney(activity.resultAmount)}
+                    {formatSignedMoney(activity.resultAmount)}
                   </strong>
                 </div>
               ))}
@@ -2026,7 +2062,7 @@ export function NeonV2HomeSections({
                     <span style={listItemMetaStyle}>{settlement.description || "Pago de tarjeta sin descripcion"}</span>
                   </div>
                   <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>
-                    {formatMoney(settlement.totalAmount)}
+                    {formatDirectionalMoney(settlement.totalAmount, "expense")}
                   </strong>
                 </div>
               ))}
@@ -2045,7 +2081,9 @@ export function NeonV2HomeSections({
                     <strong style={listItemTitleStyle}>{bucket.label}</strong>
                     <span style={listItemMetaStyle}>{bucket.count} linea(s) de ingreso</span>
                   </div>
-                  <strong style={{ ...listItemMoneyStyle, color: COLORS.incomeAccent }}>{formatMoney(bucket.amount)}</strong>
+                  <strong style={{ ...listItemMoneyStyle, color: COLORS.incomeAccent }}>
+                    {formatDirectionalMoney(bucket.amount, "income")}
+                  </strong>
                 </div>
               ))}
               {dashboard.topIncomeActivities.length === 0 ? (
