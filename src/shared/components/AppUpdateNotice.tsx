@@ -1,26 +1,33 @@
 import { useEffect, useState } from "react";
 import { fetchPublishedFrontendBuildMeta, FRONTEND_BUILD_INFO } from "../config/build";
 
+const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 1000;
+
 export function AppUpdateNotice() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    void fetchPublishedFrontendBuildMeta()
-      .then((published) => {
+    const checkForUpdates = async () => {
+      try {
+        const published = await fetchPublishedFrontendBuildMeta();
         if (!mounted) return;
-        if (published.releaseSha !== FRONTEND_BUILD_INFO.releaseSha) {
-          setShow(true);
-        }
-      })
-      .catch(() => {
+        setShow(published.releaseSha !== FRONTEND_BUILD_INFO.releaseSha);
+      } catch {
         if (mounted) {
           setShow(false);
         }
-      });
+      }
+    };
+
+    void checkForUpdates();
+    const intervalId = window.setInterval(() => {
+      void checkForUpdates();
+    }, UPDATE_CHECK_INTERVAL_MS);
 
     return () => {
       mounted = false;
+      window.clearInterval(intervalId);
     };
   }, []);
 
