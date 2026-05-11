@@ -32,19 +32,10 @@ import {
   ReportPeriodFilter
 } from "./neon.v2.types";
 
-const ACTIVE_COMPANY_STORAGE_KEY = "neon-active-company-v2";
-const COST_CENTERS_STORAGE_KEY = "neon-cost-centers-v2";
+const ACTIVE_COMPANY_STORAGE_KEY = "neon-active-company-v3";
+const COST_CENTERS_STORAGE_KEY = "neon-cost-centers-v3";
 
-const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
-  { id: "vehicle-toyota", companyKey: "empresa_verde", scope: "vehicle", label: "Toyota RAA1111", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "vehicle-micro", companyKey: "empresa_verde", scope: "vehicle", label: "Micro SAH2222", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "vehicle-movil", companyKey: "empresa_verde", scope: "vehicle", label: "Movil RAE2323", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "personal-casa", companyKey: "empresa_verde", scope: "personal", label: "Casa", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "personal-uso", companyKey: "empresa_verde", scope: "personal", label: "Uso personal", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "rental-alq1", companyKey: "empresa_verde", scope: "rental", label: "ALQ1", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "rental-alq2", companyKey: "empresa_verde", scope: "rental", label: "ALQ2", createdAt: "2026-05-02T09:00:00.000-03:00" },
-  { id: "other-otros", companyKey: "empresa_verde", scope: "other", label: "Otros", createdAt: "2026-05-02T09:00:00.000-03:00" }
-];
+const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [];
 
 function getInitialActiveCompany(): NeonCompanyKey {
   if (typeof window === "undefined") {
@@ -758,3 +749,4 @@ export function NeonHomePage() {
     </main>
   );
 }
+

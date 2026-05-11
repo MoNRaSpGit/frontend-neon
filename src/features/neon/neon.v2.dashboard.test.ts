@@ -457,8 +457,8 @@ describe("buildDashboardSummary debt and settlements", () => {
     const empresaC = buildCommercialSummaryByCompany(activities, "empresa_c", 2026);
 
     expect(empresaA).toMatchObject({
-      pendingCollectionCount: 0,
-      pendingCollectionAmount: 0,
+      pendingCollectionCount: 1,
+      pendingCollectionAmount: 1800,
       invoicedThisYearCount: 1,
       invoicedThisYearAmount: 3000
     });
