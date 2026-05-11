@@ -14,6 +14,7 @@ import {
 import { NeonAccount, NeonActivity, NeonClient, NeonJournalEntry } from "./neon.types";
 import {
   buildReportStory,
+  buildCommercialSummaryByCompany,
   DashboardSummary,
   deriveCommercialStatus,
   getCommercialStatusLabel,
@@ -42,6 +43,7 @@ import {
   metricLabelStyle,
   metricValueStyle,
   modalActionsStyle,
+  modalButtonStyle,
   modalBodyStyle,
   modalCardStyle,
   modalOverlayStyle,
@@ -100,6 +102,7 @@ type HomeSectionsProps = {
   setCostCenterForm: Dispatch<SetStateAction<CostCenterFormState>>;
   activeCompany: NeonCompanyKey;
   setActiveCompany: Dispatch<SetStateAction<NeonCompanyKey>>;
+  editingActivityId: number | null;
   pendingEditCostCenter: PendingEditCostCenterState;
   pendingDeleteCostCenter: PendingDeleteCostCenterState;
   activeView: NeonWorkspaceView;
@@ -113,6 +116,8 @@ type HomeSectionsProps = {
   onCreateClient: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateAccount: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateActivity: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onStartActivityEdit: (activityId: number) => void;
+  onCancelActivityEdit: () => void;
   onCreateJournalEntry: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateCostCenter: (event: FormEvent<HTMLFormElement>) => void;
   onEditCostCenter: (centerId: string) => void;
@@ -172,11 +177,12 @@ const WORKSPACE_VIEWS: Array<{ value: NeonWorkspaceView; label: string; descript
   { value: "overview", label: "Resumen", description: "Metricas, deuda y panorama general" },
   { value: "activities", label: "Actividades", description: "Clientes y trabajos" },
   { value: "reports", label: "Reportes", description: "Lectura financiera y operativa" },
-  { value: "centers", label: "Centros", description: "Centros de costo por empresa" }
+  { value: "centers", label: "Centros", description: "Centros de costo de todo Neon" }
 ];
 const COMPANY_OPTIONS: Array<{ value: NeonCompanyKey; label: string; hint: string }> = [
-  { value: "empresa_verde", label: "Empresa A", hint: "Incluye Neon, Móviles audiovisuales y Otros" },
-  { value: "empresa_negra", label: "Empresa B", hint: "Incluye Neon, Móviles audiovisuales y Otros" }
+  { value: "empresa_verde", label: "Empresa A", hint: "Control comercial de facturacion y cobros" },
+  { value: "empresa_negra", label: "Empresa B", hint: "Control comercial de facturacion y cobros" },
+  { value: "empresa_c", label: "Empresa C", hint: "Pendientes o casos no facturados segun criterio comercial" }
 ];
 
 const SUGGESTED_ACCOUNT_PRESETS: Array<{ name: string; accountType: AccountFormState["accountType"] }> = [
@@ -255,6 +261,7 @@ export function NeonV2HomeSections({
   setCostCenterForm,
   activeCompany,
   setActiveCompany,
+  editingActivityId,
   pendingEditCostCenter,
   pendingDeleteCostCenter,
   activeView,
@@ -268,6 +275,8 @@ export function NeonV2HomeSections({
   onCreateClient,
   onCreateAccount,
   onCreateActivity,
+  onStartActivityEdit,
+  onCancelActivityEdit,
   onCreateJournalEntry,
   onCreateCostCenter,
   onEditCostCenter,
@@ -278,6 +287,7 @@ export function NeonV2HomeSections({
   onCancelDeleteCostCenter
 }: HomeSectionsProps) {
   const activeCompanyLabel = getCompanyLabel(activeCompany);
+  const activeCommercialSummary = buildCommercialSummaryByCompany(activities, activeCompany);
   const journalDifference = Number(journalForm.totalAmount || 0) - journalAllocationTotal;
   const selectedJournalAccount = accounts.find((account) => String(account.id) === journalForm.accountId);
   const journalUsesCredit = selectedJournalAccount?.accountType === "credit";
@@ -360,7 +370,7 @@ export function NeonV2HomeSections({
       <section style={workspaceNavWrapStyle}>
         <div style={companySwitcherStyle}>
           <div style={companySwitcherInnerStyle}>
-            <span style={companySwitcherLabelStyle}>Empresa activa: {activeCompanyLabel}</span>
+            <span style={companySwitcherLabelStyle}>Empresa para control comercial: {activeCompanyLabel}</span>
             <div style={companySwitcherButtonsStyle}>
               {COMPANY_OPTIONS.map((company) => {
                 const isActive = activeCompany === company.value;
@@ -413,7 +423,7 @@ export function NeonV2HomeSections({
         <article style={{ ...panelStyle, gap: 20 }}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Resumen</h2>
-            <span style={panelCaptionStyle}>Saldo y alertas principales para arrancar rapido en {activeCompanyLabel}.</span>
+            <span style={panelCaptionStyle}>Saldo general de Neon y control comercial puntual para {activeCompanyLabel}.</span>
           </header>
 
           <div
@@ -453,17 +463,17 @@ export function NeonV2HomeSections({
             </div>
             <div style={listItemStyle}>
               <div>
-                <strong style={listItemTitleStyle}>Pendiente de cobrar</strong>
-                <span style={listItemMetaStyle}>{dashboard.pendingCollectionCount} actividad(es) con saldo abierto</span>
+                <strong style={listItemTitleStyle}>Pte cobrar {activeCompanyLabel}</strong>
+                <span style={listItemMetaStyle}>{activeCommercialSummary.pendingCollectionCount} actividad(es) con saldo abierto</span>
               </div>
-              <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(dashboard.pendingCollectionAmount)}</strong>
+              <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(activeCommercialSummary.pendingCollectionAmount)}</strong>
             </div>
             <div style={listItemStyle}>
               <div>
-                <strong style={listItemTitleStyle}>Deuda pendiente</strong>
-                <span style={listItemMetaStyle}>{dashboard.pendingDebtCount} movimiento(s) a credito / vencido {formatMoney(dashboard.overdueDebtAmount)}</span>
+                <strong style={listItemTitleStyle}>Facturado en el año {activeCompanyLabel}</strong>
+                <span style={listItemMetaStyle}>{activeCommercialSummary.invoicedThisYearCount} actividad(es) ya facturadas</span>
               </div>
-              <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(dashboard.pendingDebtAmount)}</strong>
+              <strong style={listItemMoneyStyle}>{formatMoney(activeCommercialSummary.invoicedThisYearAmount)}</strong>
             </div>
           </div>
         </article>
@@ -472,7 +482,7 @@ export function NeonV2HomeSections({
         <article style={panelStyle}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Centros de costo</h2>
-            <span style={panelCaptionStyle}>Alta, correccion y control de centros propios para {activeCompanyLabel}.</span>
+            <span style={panelCaptionStyle}>Alta, correccion y control de centros propios para todo Neon.</span>
           </header>
 
           <form onSubmit={onCreateCostCenter} style={formStyle}>
@@ -521,7 +531,7 @@ export function NeonV2HomeSections({
                         <div>
                           <strong style={listItemTitleStyle}>{center.label}</strong>
                           <span style={listItemMetaStyle}>
-                            {activeCompanyLabel} · {scope === "other" ? "Centro generico" : getEditableCenterScopeLabel(scope)}
+                            {scope === "other" ? "Centro generico" : getEditableCenterScopeLabel(scope)}
                           </span>
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -543,7 +553,7 @@ export function NeonV2HomeSections({
                       </div>
                     ))}
                     {scopedCenters.length === 0 ? (
-                      <p style={emptyTextStyle}>Todavia no hay centros de este tipo para esta empresa.</p>
+                      <p style={emptyTextStyle}>Todavia no hay centros de este tipo.</p>
                     ) : null}
                   </div>
                 </div>
@@ -615,6 +625,137 @@ export function NeonV2HomeSections({
                 </button>
                 <button type="submit" style={primaryButtonStyle}>
                   Guardar cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+      {editingActivityId ? (
+        <div style={modalOverlayStyle}>
+          <div style={modalCardStyle}>
+            <h3 style={modalTitleStyle}>Editar actividad</h3>
+            <form onSubmit={onCreateActivity} style={formStyle}>
+              <label style={fieldStyle}>
+                <span>Fecha</span>
+                <input
+                  type="date"
+                  value={activityForm.activityDate}
+                  onChange={(event) => setActivityForm((current) => ({ ...current, activityDate: event.target.value }))}
+                  style={inputStyle}
+                />
+              </label>
+              <label style={fieldStyle}>
+                <span>Cliente</span>
+                <select
+                  value={activityForm.clientId}
+                  onChange={(event) => setActivityForm((current) => ({ ...current, clientId: event.target.value }))}
+                  style={inputStyle}
+                >
+                  <option value="">Sin cliente por ahora</option>
+                  {clients.map((client) => (
+                    <option key={`activity-modal-client-${client.id}`} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={fieldStyle}>
+                <span>Tipo</span>
+                <select
+                  value={activityForm.activityType}
+                  onChange={(event) =>
+                    setActivityForm((current) => ({
+                      ...current,
+                      activityType: event.target.value as ActivityFormState["activityType"]
+                    }))
+                  }
+                  style={inputStyle}
+                >
+                  {ACTIVITY_TYPE_OPTIONS.map((option) => (
+                    <option key={`activity-modal-type-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+                <span>Descripcion</span>
+                <input
+                  value={activityForm.description}
+                  onChange={(event) => setActivityForm((current) => ({ ...current, description: event.target.value }))}
+                  style={inputStyle}
+                />
+              </label>
+              <label style={fieldStyle}>
+                <span>Monto del trabajo</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={activityForm.quotedAmount}
+                  onChange={(event) => setActivityForm((current) => ({ ...current, quotedAmount: event.target.value }))}
+                  style={inputStyle}
+                />
+              </label>
+              <label style={fieldStyle}>
+                <span>Estado</span>
+                <select
+                  value={activityForm.commercialStatus}
+                  onChange={(event) =>
+                    setActivityForm((current) => ({
+                      ...current,
+                      commercialStatus: event.target.value as ActivityFormState["commercialStatus"]
+                    }))
+                  }
+                  style={inputStyle}
+                >
+                  {ACTIVITY_STATUS_OPTIONS.map((option) => (
+                    <option key={`activity-modal-status-${option.value}`} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {activityForm.commercialStatus === "facturado" ? (
+                <>
+                  <label style={fieldStyle}>
+                    <span>Empresa facturada</span>
+                    <select
+                      value={activityForm.invoiceCompanyKey}
+                      onChange={(event) =>
+                        setActivityForm((current) => ({
+                          ...current,
+                          invoiceCompanyKey: event.target.value as ActivityFormState["invoiceCompanyKey"]
+                        }))
+                      }
+                      style={inputStyle}
+                    >
+                      {COMPANY_OPTIONS.map((company) => (
+                        <option key={`activity-modal-company-${company.value}`} value={company.value}>
+                          {company.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={fieldStyle}>
+                    <span>Fecha factura</span>
+                    <input
+                      type="date"
+                      value={activityForm.invoiceDate}
+                      onChange={(event) => setActivityForm((current) => ({ ...current, invoiceDate: event.target.value }))}
+                      style={inputStyle}
+                    />
+                  </label>
+                </>
+              ) : null}
+              <p style={modalBodyStyle}>Si la actividad queda facturada, pasa a pendiente de cobrar hasta que los ingresos del diario cubran el importe facturado.</p>
+              <div style={modalActionsStyle}>
+                <button type="button" onClick={onCancelActivityEdit} style={{ ...secondaryButtonStyle, ...modalButtonStyle }}>
+                  Cancelar
+                </button>
+                <button type="submit" disabled={savingActivity} style={{ ...primaryButtonStyle, ...modalButtonStyle }}>
+                  {savingActivity ? "Guardando..." : "Guardar cambios"}
                 </button>
               </div>
             </form>
@@ -1188,7 +1329,7 @@ export function NeonV2HomeSections({
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Crear actividad</h3>
             <span style={panelCaptionStyle}>
-              Usa esta parte solo para trabajos numerados. Los alquileres entran por libro diario y se asignan a ALQ1, ALQ2 u otro centro.
+              Usa esta parte solo para trabajos numerados. La empresa se pide recien al facturar y sirve solo para control comercial.
             </span>
             <form onSubmit={onCreateActivity} style={formStyle}>
               <label style={fieldStyle}>
@@ -1277,6 +1418,25 @@ export function NeonV2HomeSections({
               {activityForm.commercialStatus === "facturado" ? (
                 <>
                   <label style={fieldStyle}>
+                    <span>Empresa facturada</span>
+                    <select
+                      value={activityForm.invoiceCompanyKey}
+                      onChange={(event) =>
+                        setActivityForm((current) => ({
+                          ...current,
+                          invoiceCompanyKey: event.target.value as ActivityFormState["invoiceCompanyKey"]
+                        }))
+                      }
+                      style={inputStyle}
+                    >
+                      {COMPANY_OPTIONS.map((company) => (
+                        <option key={`invoice-company-${company.value}`} value={company.value}>
+                          {company.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={fieldStyle}>
                     <span>Fecha factura</span>
                     <input
                       type="date"
@@ -1285,24 +1445,12 @@ export function NeonV2HomeSections({
                       style={inputStyle}
                     />
                   </label>
-                  <label style={fieldStyle}>
-                    <span>Importe facturado</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={activityForm.invoicedAmount}
-                      onChange={(event) => setActivityForm((current) => ({ ...current, invoicedAmount: event.target.value }))}
-                      style={inputStyle}
-                      placeholder="0"
-                    />
-                  </label>
                 </>
               ) : null}
               <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
                 <span>Control automatico</span>
                 <input
-                  value="Cuando entra dinero por el diario asignado a la actividad, el sistema la mueve segun lo cobrado."
+                  value="Si la actividad queda facturada, pasa a pendiente de cobrar hasta que los ingresos del diario asignados a esa actividad cubran el importe facturado."
                   readOnly
                   style={{ ...inputStyle, opacity: 0.85 }}
                 />
@@ -1348,14 +1496,15 @@ export function NeonV2HomeSections({
                         Estado: {getCommercialStatusLabel(deriveCommercialStatus(activity))} · Cotizado {formatMoney(activity.quotedAmount)}
                       </span>
                       {getInvoiceSummary(activity) ? <span style={listItemMetaStyle}>{getInvoiceSummary(activity)}</span> : null}
-                      <span style={listItemMetaStyle}>Estado operativo: {getCommercialStatusLabel(deriveCommercialStatus(activity))}</span>
-                      <span style={listItemMetaStyle}>
-                        Cobrado {formatMoney(activity.collectedAmount)} · Pendiente {formatMoney(activity.pendingAmount)}
-                      </span>
+                      <span style={listItemMetaStyle}>Estado comercial: {getCommercialStatusLabel(deriveCommercialStatus(activity))}</span>
+                      <span style={listItemMetaStyle}>Cobrado {formatMoney(activity.collectedAmount)} Â· Pendiente {formatMoney(activity.pendingAmount)}</span>
                     </div>
                     <strong style={{ ...listItemMoneyStyle, color: getResultTone(activity.pendingAmount > 0 ? -activity.pendingAmount : activity.collectedAmount) }}>
                       {activity.pendingAmount > 0 ? formatMoney(activity.pendingAmount) : formatMoney(activity.collectedAmount)}
                     </strong>
+                    <button type="button" onClick={() => onStartActivityEdit(activity.id)} style={secondaryButtonStyle}>
+                      Editar
+                    </button>
                   </div>
                 ))}
               {!loading && pendingCommercialActivities.length === 0 ? <p style={emptyTextStyle}>No hay actividades pendientes ahora.</p> : null}
@@ -1375,7 +1524,6 @@ export function NeonV2HomeSections({
                       {activity.clientName || "Sin cliente"} · {getCommercialStatusLabel(deriveCommercialStatus(activity))}
                     </span>
                     {getInvoiceSummary(activity) ? <span style={listItemMetaStyle}>{getInvoiceSummary(activity)}</span> : null}
-                    <span style={listItemMetaStyle}>Estado operativo: {getCommercialStatusLabel(deriveCommercialStatus(activity))}</span>
                     <span style={listItemMetaStyle}>
                       Cotizado {formatMoney(activity.quotedAmount)} · Cobrado {formatMoney(activity.collectedAmount)} · Pendiente {formatMoney(activity.pendingAmount)}
                     </span>
@@ -1383,6 +1531,9 @@ export function NeonV2HomeSections({
                   <strong style={{ ...listItemMoneyStyle, color: getResultTone(activity.pendingAmount > 0 ? -activity.pendingAmount : activity.collectedAmount) }}>
                     {formatMoney(activity.quotedAmount)}
                   </strong>
+                  <button type="button" onClick={() => onStartActivityEdit(activity.id)} style={secondaryButtonStyle}>
+                    Editar
+                  </button>
                 </div>
               ))}
               {!loading && activities.length === 0 ? <p style={emptyTextStyle}>Todavia no hay actividades.</p> : null}
@@ -1393,7 +1544,7 @@ export function NeonV2HomeSections({
         <article style={activeView === "reports" ? panelStyle : { ...panelStyle, display: "none" }}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Reportes</h2>
-            <span style={panelCaptionStyle}>Saldos, deudas, centros de costo y control comercial de {activeCompanyLabel}.</span>
+            <span style={panelCaptionStyle}>Saldos, deudas, centros de costo y control comercial por empresa facturada.</span>
           </header>
 
           <div style={subPanelStyle}>
@@ -1449,6 +1600,27 @@ export function NeonV2HomeSections({
           </div>
 
           <div style={subPanelStyle}>
+            <h3 style={subPanelTitleStyle}>Control comercial por empresa</h3>
+            <div style={dashboardGridStyle}>
+              <article style={{ ...metricCardStyle, background: COLORS.accountBg }}>
+                <span style={metricLabelStyle}>Pte cobrar {activeCompanyLabel}</span>
+                <strong style={metricValueStyle}>{formatMoney(activeCommercialSummary.pendingCollectionAmount)}</strong>
+                <span style={metricCaptionStyle}>{activeCommercialSummary.pendingCollectionCount} actividad(es)</span>
+              </article>
+              <article style={{ ...metricCardStyle, background: COLORS.incomeBg }}>
+                <span style={metricLabelStyle}>Facturado en el año</span>
+                <strong style={metricValueStyle}>{formatMoney(activeCommercialSummary.invoicedThisYearAmount)}</strong>
+                <span style={metricCaptionStyle}>{activeCommercialSummary.invoicedThisYearCount} actividad(es)</span>
+              </article>
+              <article style={{ ...metricCardStyle, background: COLORS.panelAlt }}>
+                <span style={metricLabelStyle}>Empresa elegida</span>
+                <strong style={metricValueStyle}>{activeCompanyLabel}</strong>
+                <span style={metricCaptionStyle}>La empresa se asigna al facturar la actividad.</span>
+              </article>
+            </div>
+          </div>
+
+          <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Cortes principales</h3>
             <div style={dashboardGridStyle}>
               <article style={{ ...metricCardStyle, background: COLORS.incomeBg }}>
@@ -1473,9 +1645,7 @@ export function NeonV2HomeSections({
               <article style={{ ...metricCardStyle, background: COLORS.panelAlt }}>
                 <span style={metricLabelStyle}>Pendientes comerciales</span>
                 <strong style={metricValueStyle}>{formatMoney(dashboard.pendingBillingAmount + dashboard.pendingCollectionAmount)}</strong>
-                <span style={metricCaptionStyle}>
-                  {dashboard.pendingBillingCount} por facturar / {dashboard.pendingCollectionCount} por cobrar
-                </span>
+                <span style={metricCaptionStyle}>{dashboard.pendingBillingCount} por facturar / {dashboard.pendingCollectionCount} por cobrar</span>
               </article>
             </div>
           </div>

@@ -13,6 +13,15 @@ export type DashboardBucket = {
   count: number;
 };
 
+export type CompanyCommercialSummary = {
+  companyKey: NeonCompanyKey;
+  companyLabel: string;
+  pendingCollectionCount: number;
+  pendingCollectionAmount: number;
+  invoicedThisYearCount: number;
+  invoicedThisYearAmount: number;
+};
+
 export type PendingDebtItem = {
   movementId: number;
   movementDate: string;
@@ -158,7 +167,9 @@ export type DashboardSummary = {
 export type DerivedCommercialStatus = "pendiente_de_facturar" | "pendiente_de_cobrar" | "cobrado";
 
 export function getCompanyLabel(company: NeonCompanyKey) {
-  return company === "empresa_negra" ? "Empresa B" : "Empresa A";
+  if (company === "empresa_negra") return "Empresa B";
+  if (company === "empresa_c") return "Empresa C";
+  return "Empresa A";
 }
 
 export function deriveCommercialStatus(
@@ -168,7 +179,6 @@ export function deriveCommercialStatus(
   const shouldBehaveAsInvoiced =
     hasInvoiceData ||
     activity.commercialStatus === "facturado" ||
-    activity.commercialStatus === "pendiente_de_cobrar" ||
     activity.commercialStatus === "cobrado";
 
   if (!shouldBehaveAsInvoiced) {
@@ -189,7 +199,7 @@ export function getActivityCompany(activity: Pick<NeonActivity, "companyKey">): 
 }
 
 export function filterActivitiesByCompany(activities: NeonActivity[], company: NeonCompanyKey) {
-  return activities.filter((activity) => (activity.companyKey || getActivityCompany(activity)) === company);
+  return activities.filter((activity) => activity.invoiceCompanyKey === company);
 }
 
 export function filterJournalEntriesByCompany(
@@ -200,6 +210,10 @@ export function filterJournalEntriesByCompany(
   const companyActivityIds = new Set(filterActivitiesByCompany(activities, company).map((activity) => activity.id));
 
   return journalEntries.filter((entry) => {
+    if (company === "empresa_c") {
+      return false;
+    }
+
     if (entry.companyKey) {
       return entry.companyKey === company;
     }
@@ -214,6 +228,27 @@ export function filterJournalEntriesByCompany(
         Boolean(allocation.destinationActivityId && companyActivityIds.has(allocation.destinationActivityId))
     );
   });
+}
+
+export function buildCommercialSummaryByCompany(
+  activities: NeonActivity[],
+  company: NeonCompanyKey,
+  year: number = new Date().getFullYear()
+): CompanyCommercialSummary {
+  const companyActivities = activities.filter((activity) => activity.invoiceCompanyKey === company);
+  const pendingCollectionActivities = companyActivities.filter((activity) => deriveCommercialStatus(activity) === "pendiente_de_cobrar");
+  const invoicedThisYearActivities = companyActivities.filter(
+    (activity) => Boolean(activity.invoiceDate && activity.invoiceDate.startsWith(`${year}-`) && activity.invoicedAmount !== null)
+  );
+
+  return {
+    companyKey: company,
+    companyLabel: getCompanyLabel(company),
+    pendingCollectionCount: pendingCollectionActivities.length,
+    pendingCollectionAmount: pendingCollectionActivities.reduce((sum, activity) => sum + activity.pendingAmount, 0),
+    invoicedThisYearCount: invoicedThisYearActivities.length,
+    invoicedThisYearAmount: invoicedThisYearActivities.reduce((sum, activity) => sum + (activity.invoicedAmount || 0), 0)
+  };
 }
 
 function getAllocationLabel(allocation: NeonJournalAllocation) {

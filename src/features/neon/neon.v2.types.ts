@@ -18,7 +18,7 @@ export type ActivityFormState = {
   quotedAmount: string;
   commercialStatus: "pendiente_de_facturar" | "facturado";
   invoiceDate: string;
-  invoicedAmount: string;
+  invoiceCompanyKey: NeonCompanyKey;
 };
 
 export type JournalAllocationFormState = {
@@ -63,7 +63,7 @@ export type NeonCostCenterScope = Exclude<ReportCenterScope, "all" | "activity">
 
 export type NeonWorkspaceView = "idle" | "overview" | "journal" | "activities" | "reports" | "centers";
 
-export type NeonCompanyKey = "empresa_verde" | "empresa_negra";
+export type NeonCompanyKey = "empresa_verde" | "empresa_negra" | "empresa_c";
 
 export type CostCenterFormState = {
   editingId: string | null;

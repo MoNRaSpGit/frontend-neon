@@ -61,7 +61,7 @@ export type NeonJournalAllocationInput = {
 export type NeonJournalEntry = {
   id: number;
   tenantId: number;
-  companyKey: "empresa_verde" | "empresa_negra";
+  companyKey: "empresa_verde" | "empresa_negra" | "empresa_c";
   movementType: "income" | "expense";
   movementDate: string;
   accountId: number;
@@ -112,7 +112,7 @@ export type NeonActivityPayment = {
 export type NeonActivity = {
   id: number;
   tenantId: number;
-  companyKey: "empresa_verde" | "empresa_negra";
+  companyKey: "empresa_verde" | "empresa_negra" | "empresa_c";
   activityNumber: number;
   activityYear: number;
   activityDate: string;
@@ -124,7 +124,7 @@ export type NeonActivity = {
   quotedAmount: number;
   invoiceDate: string | null;
   invoicedAmount: number | null;
-  invoiceCompanyKey: "empresa_verde" | "empresa_negra" | null;
+  invoiceCompanyKey: "empresa_verde" | "empresa_negra" | "empresa_c" | null;
   collectedAmount: number;
   pendingAmount: number;
   payments?: NeonActivityPayment[];

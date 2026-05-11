@@ -25,7 +25,7 @@ const DEMO_USER = {
 type MutableAccount = Omit<NeonAccount, "currentBalance">;
 type MutableActivity = Omit<NeonActivity, "collectedAmount" | "pendingAmount" | "payments">;
 type JournalCreationInput = {
-  companyKey?: "empresa_verde" | "empresa_negra";
+  companyKey?: "empresa_verde" | "empresa_negra" | "empresa_c";
   movementType: "income" | "expense";
   movementDate: string;
   accountId: number;
@@ -169,7 +169,7 @@ const seedActivities: MutableActivity[] = [
     clientId: 1,
     clientName: "Claudia Ferre",
     activityType: "neon",
-    commercialStatus: "pendiente_de_cobrar",
+    commercialStatus: "facturado",
     quotedAmount: 18500,
     invoiceDate: "2026-05-04",
     invoicedAmount: 18500,
@@ -404,14 +404,14 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function getFallbackCompanyKeyFromActivityType(_activityType: MutableActivity["activityType"]) {
+function getFallbackCompanyKeyFromActivityType() {
   return "empresa_verde";
 }
 
 function normalizeActivity(activity: MutableActivity): MutableActivity {
   return {
     ...activity,
-    companyKey: activity.companyKey || getFallbackCompanyKeyFromActivityType(activity.activityType),
+    companyKey: activity.companyKey || getFallbackCompanyKeyFromActivityType(),
     invoiceDate: activity.invoiceDate || null,
     invoicedAmount: typeof activity.invoicedAmount === "number" ? activity.invoicedAmount : null,
     invoiceCompanyKey: activity.invoiceCompanyKey || null
@@ -644,7 +644,9 @@ function deriveActivities(): NeonActivity[] {
       );
     }, 0);
 
-    const pendingAmount = Math.max(Number((activity.quotedAmount - collectedAmount).toFixed(2)), 0);
+    const pendingBase =
+      activity.invoiceDate && activity.invoiceCompanyKey && activity.invoicedAmount !== null ? activity.invoicedAmount : activity.quotedAmount;
+    const pendingAmount = Math.max(Number((pendingBase - collectedAmount).toFixed(2)), 0);
 
     return {
       ...activity,
@@ -917,13 +919,13 @@ export async function createNeonActivity(input: {
   activityDate: string;
   description: string;
   clientId?: number;
-  companyKey: "empresa_verde" | "empresa_negra";
+  companyKey: "empresa_verde" | "empresa_negra" | "empresa_c";
   activityType: "neon" | "movil_audiovisual" | "otros";
   quotedAmount: number;
   commercialStatus?: "pendiente_de_facturar" | "facturado" | "pendiente_de_cobrar" | "cobrado";
   invoiceDate?: string;
   invoicedAmount?: number;
-  invoiceCompanyKey?: "empresa_verde" | "empresa_negra";
+  invoiceCompanyKey?: "empresa_verde" | "empresa_negra" | "empresa_c";
 }) {
   const timestamp = nowIso();
   const activityYear = Number(input.activityDate.slice(0, 4));
@@ -958,13 +960,61 @@ export async function createNeonActivity(input: {
   return deriveActivities().find((item) => item.id === activity.id)!;
 }
 
+export async function updateNeonActivity(
+  activityId: number,
+  input: {
+    activityDate: string;
+    description: string;
+    clientId?: number;
+    activityType: "neon" | "movil_audiovisual" | "otros";
+    quotedAmount: number;
+    commercialStatus?: "pendiente_de_facturar" | "facturado" | "pendiente_de_cobrar" | "cobrado";
+    invoiceDate?: string;
+    invoicedAmount?: number;
+    invoiceCompanyKey?: "empresa_verde" | "empresa_negra" | "empresa_c";
+  }
+) {
+  const timestamp = nowIso();
+  const activityIndex = activitiesStore.findIndex((item) => item.id === activityId);
+  if (activityIndex < 0) {
+    throw new Error("No se pudo actualizar la actividad");
+  }
+
+  const currentActivity = activitiesStore[activityIndex];
+  const client = input.clientId ? clientsStore.find((item) => item.id === input.clientId) : null;
+  const normalizedStatus =
+    input.commercialStatus === "facturado" ? "facturado" : input.commercialStatus || "pendiente_de_facturar";
+
+  activitiesStore[activityIndex] = normalizeActivity({
+    ...currentActivity,
+    activityDate: input.activityDate,
+    description: input.description.trim(),
+    clientId: client?.id || null,
+    clientName: client?.name || null,
+    activityType: input.activityType,
+    commercialStatus: normalizedStatus,
+    quotedAmount: Number(input.quotedAmount.toFixed(2)),
+    invoiceDate: normalizedStatus === "facturado" ? input.invoiceDate || null : null,
+    invoicedAmount:
+      normalizedStatus === "facturado" && Number.isFinite(input.invoicedAmount)
+        ? Number(input.invoicedAmount!.toFixed(2))
+        : null,
+    invoiceCompanyKey: normalizedStatus === "facturado" ? input.invoiceCompanyKey || null : null,
+    companyKey: normalizedStatus === "facturado" ? input.invoiceCompanyKey || currentActivity.companyKey : currentActivity.companyKey,
+    updatedAt: timestamp
+  });
+
+  persistStores();
+  return deriveActivities().find((item) => item.id === activityId)!;
+}
+
 export async function createNeonExpense(input: {
   accountId: number;
   categoryId: number;
   expenseDate: string;
   totalAmount: number;
   description?: string;
-  companyKey?: "empresa_verde" | "empresa_negra";
+  companyKey?: "empresa_verde" | "empresa_negra" | "empresa_c";
   destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
   destinationActivityId?: number;
   destinationLabel?: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildDashboardSummary } from "./neon.v2.dashboard";
+import { buildCommercialSummaryByCompany, buildDashboardSummary } from "./neon.v2.dashboard";
 import { NeonAccount, NeonActivity, NeonJournalEntry } from "./neon.types";
 
 function createAccount(input: Partial<NeonAccount> & Pick<NeonAccount, "id" | "name" | "accountType">): NeonAccount {
@@ -56,7 +56,7 @@ function createActivity(input: Partial<NeonActivity> & Pick<NeonActivity, "id" |
     clientId: input.clientId ?? null,
     clientName: input.clientName ?? null,
     activityType: input.activityType ?? "neon",
-    commercialStatus: input.commercialStatus ?? "pendiente_de_cobrar",
+    commercialStatus: input.commercialStatus ?? "pendiente_de_facturar",
     quotedAmount: input.quotedAmount,
     invoiceDate: input.invoiceDate ?? null,
     invoicedAmount: input.invoicedAmount ?? null,
@@ -409,5 +409,70 @@ describe("buildDashboardSummary debt and settlements", () => {
     expect(summary.reportIncomeAmount).toBe(700);
     expect(summary.reportExpenseAmount).toBe(0);
     expect(summary.profitableActivitiesCount).toBe(1);
+  });
+
+  it("groups pending collection and invoiced totals by commercial company", () => {
+    const activities: NeonActivity[] = [
+      createActivity({
+        id: 61,
+        activityNumber: 10,
+        activityYear: 2026,
+        description: "Pantalla principal",
+        quotedAmount: 3000,
+        commercialStatus: "facturado",
+        invoiceDate: "2026-05-02",
+        invoicedAmount: 3000,
+        invoiceCompanyKey: "empresa_verde",
+        collectedAmount: 1200,
+        pendingAmount: 1800
+      }),
+      createActivity({
+        id: 62,
+        activityNumber: 11,
+        activityYear: 2026,
+        description: "Movil apoyo",
+        quotedAmount: 1800,
+        commercialStatus: "facturado",
+        invoiceDate: "2026-03-10",
+        invoicedAmount: 1800,
+        invoiceCompanyKey: "empresa_negra",
+        collectedAmount: 1800,
+        pendingAmount: 0
+      }),
+      createActivity({
+        id: 63,
+        activityNumber: 12,
+        activityYear: 2026,
+        description: "Trabajo a definir",
+        quotedAmount: 900,
+        commercialStatus: "pendiente_de_facturar",
+        invoiceCompanyKey: null,
+        collectedAmount: 0,
+        pendingAmount: 900
+      })
+    ];
+
+    const empresaA = buildCommercialSummaryByCompany(activities, "empresa_verde", 2026);
+    const empresaB = buildCommercialSummaryByCompany(activities, "empresa_negra", 2026);
+    const empresaC = buildCommercialSummaryByCompany(activities, "empresa_c", 2026);
+
+    expect(empresaA).toMatchObject({
+      pendingCollectionCount: 0,
+      pendingCollectionAmount: 0,
+      invoicedThisYearCount: 1,
+      invoicedThisYearAmount: 3000
+    });
+    expect(empresaB).toMatchObject({
+      pendingCollectionCount: 0,
+      pendingCollectionAmount: 0,
+      invoicedThisYearCount: 1,
+      invoicedThisYearAmount: 1800
+    });
+    expect(empresaC).toMatchObject({
+      pendingCollectionCount: 0,
+      pendingCollectionAmount: 0,
+      invoicedThisYearCount: 0,
+      invoicedThisYearAmount: 0
+    });
   });
 });

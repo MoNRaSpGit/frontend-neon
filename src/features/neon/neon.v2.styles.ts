@@ -327,3 +327,7 @@ export const modalActionsStyle: CSSProperties = {
   gap: 10,
   flexWrap: "wrap"
 };
+
+export const modalButtonStyle: CSSProperties = {
+  minWidth: 148
+};
