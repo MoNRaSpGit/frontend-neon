@@ -1,6 +1,6 @@
 # Neon - Contexto funcional V3
 
-Fecha de actualizacion: 2026-05-06
+Fecha de actualizacion: 2026-05-10
 
 ## Definicion final del producto
 
@@ -144,6 +144,17 @@ Tipos actuales:
 - MOVIL AUDIOVISUAL
 - OTROS
 
+### Empresa comercial de factura
+
+`Empresa A / B / C` no se interpreta hoy como estructura operativa completa del negocio.
+
+Regla validada con cliente:
+
+- `neon` se trabaja como un todo
+- la empresa se usa para controlar por quien quedo facturada una actividad
+- la empresa se elige cuando una actividad pasa a `facturado`
+- no divide cuentas, diario, vehiculos, personal o alquileres
+
 ## Estados de actividad
 
 Estados funcionales:
@@ -160,6 +171,11 @@ Automatizaciones validadas:
 - si el pendiente llega a `0`, queda en `cobrado`
 - cuando esta cobrado, debe desaparecer de pendientes
 
+Regla adicional vigente:
+
+- el importe pendiente de cobrar se calcula contra el importe facturado real
+- si una actividad fue cotizada por un valor y luego se edita antes de facturar, ese mismo monto corregido se usa como base facturada
+
 ## Reportes esperados
 
 El valor principal del producto esta en los reportes.
@@ -172,6 +188,8 @@ Minimo esperado en V3:
 - ingresos por centro
 - pendientes de facturar
 - pendientes de cobrar
+- pendientes de cobrar por empresa facturada
+- total facturado en el año por empresa facturada
 - resultados por actividad
 - total ingresos
 - total gastos
@@ -197,6 +215,8 @@ Al dia de hoy ya existe una base tecnica funcional sobre el modelo nuevo:
 - recalculo de cobrado y pendiente desde ingresos del libro diario asignados a actividad
 - dashboard simple con saldos, ingresos, gastos, falta cobrar y falta facturar
 - reportes base de gastos por centro e ingresos por actividad
+- control comercial por empresa ligada a la factura
+- edicion de actividad desde modal
 
 ## Que todavia falta para cerrar V3
 
@@ -210,6 +230,7 @@ Pendientes mas importantes:
 - filtros y reportes por fecha
 - edicion y borrado logico de movimientos
 - resultados por actividad mas completos
+- terminar de definir si `Empresa C` queda solo para no facturado o tambien para una tercera empresa real
 
 ## Resumen
 

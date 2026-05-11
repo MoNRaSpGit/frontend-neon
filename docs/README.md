@@ -1,6 +1,6 @@
 # Neon Docs
 
-Fecha de actualizacion: 2026-05-06
+Fecha de actualizacion: 2026-05-10
 
 Esta carpeta guarda la documentacion funcional y operativa de `frontend-neon`.
 
@@ -40,6 +40,10 @@ Hoy muestra:
 - pendiente de facturar
 - pendiente de cobrar
 - deuda pendiente
+- control comercial por empresa facturada:
+  - `Empresa A`
+  - `Empresa B`
+  - `Empresa C`
 
 ### Diario
 
@@ -86,7 +90,19 @@ El lenguaje vigente es:
 - `facturado`
 - `pendiente de cobrar`
 
-El cobro real baja desde el libro diario cuando entra dinero asignado a esa actividad.
+Regla vigente del piloto:
+
+- la empresa se asigna al facturar la actividad
+- `Empresa A / B / C` no separan la operacion diaria completa
+- sirven como control comercial de lo facturado
+- el cobro real baja desde el libro diario cuando entra dinero asignado a esa actividad
+
+Ademas hoy permite:
+
+- editar actividad desde modal
+- cambiar el monto del trabajo en la misma edicion
+- pasar de `pendiente de facturar` a `facturado`
+- ver cuanto queda pendiente de cobrar segun ingresos reales
 
 ### Reportes
 
@@ -136,6 +152,9 @@ Hoy ya esta implementado y validado:
 - neteo de deuda con pagos de tarjeta
 - actividades integradas al nuevo modelo
 - cobrado y pendiente calculados desde ingresos del journal
+- empresa comercial ligada a la factura de actividad
+- modal de edicion para actividades
+- monto del trabajo como unico importe editable en UI
 - filtros por periodo en reportes
 - rango personalizado en reportes
 
@@ -204,6 +223,7 @@ Todavia no se endurece:
 - gestion fuerte de alquileres como entidad propia
 - edicion y borrado logico visibles
 - limpieza final de piezas heredadas
+- cierre fino del lenguaje entre `cotizado`, `facturado` y `cobrado`
 
 ## Donde quedamos hoy
 
@@ -214,6 +234,7 @@ El producto ya tiene una base util para prueba real con cliente:
 - puede registrar credito y vencimientos
 - puede separar alquileres de actividades
 - puede mirar cuentas, deuda y reportes por centro
+- puede seguir pendientes de facturar y pendientes de cobrar por empresa comercial
 - abre directamente en `Diario`, que hoy es la entrada principal pedida por cliente
 
 ## Siguiente paso recomendado
@@ -231,3 +252,4 @@ El camino sugerido es:
 
 - [Contexto funcional del producto](./product-context.md)
 - [Diseno tecnico MVP / V3](./mvp-technical-design.md)
+- [Bitacora del modulo](./bitacora.md)

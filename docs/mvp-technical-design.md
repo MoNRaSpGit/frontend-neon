@@ -1,6 +1,6 @@
 # Neon - Diseno tecnico MVP / V3
 
-Fecha de actualizacion: 2026-05-06
+Fecha de actualizacion: 2026-05-10
 
 ## Objetivo de este corte
 
@@ -59,6 +59,8 @@ Regla operativa:
 
 - el cobro real viene del libro diario
 - no se trata a `cobrado` como estado manual principal
+- `Empresa A / B / C` se asigna al facturar y funciona como control comercial
+- editar una actividad abre modal en la UI actual
 
 ### 4. movements
 
@@ -77,6 +79,11 @@ Campos funcionales visibles hoy:
 - expense kind
 - card label
 - due date
+
+Nota vigente:
+
+- el diario sigue siendo global para todo `neon`
+- la empresa comercial no filtra la operacion general del diario
 
 Uso actual:
 
@@ -189,6 +196,7 @@ Hoy la UI ya cubre una primera lectura util de:
 - saldos por cuenta
 - deuda por tarjeta y vencimiento
 - pagos de tarjeta recientes
+- control comercial por empresa facturada
 - gastos e ingresos por centro
 - libro diario filtrado
 - resultados por actividad
@@ -211,8 +219,14 @@ Y ademas adapta el resumen principal segun foco:
 ### Actividad
 
 - total = quoted_amount
+- facturado = quoted_amount vigente al momento de pasar a `facturado`
 - cobrado = suma de ingresos asignados a la actividad
-- pendiente = quoted_amount - cobrado
+- pendiente = facturado - cobrado
+
+Regla de UI:
+
+- hoy no se expone un segundo campo visible de `importe facturado`
+- si el usuario necesita corregir el valor, edita el mismo `monto del trabajo` antes de guardar la factura
 
 ### Deuda de tarjeta
 
@@ -234,6 +248,8 @@ Este corte ya deja validado casi todo el pedido principal del cliente:
 - reparto de un mismo movimiento entre varios destinos
 - alquileres fuera de actividades
 - lectura base de vehiculos, actividades y deuda
+- empresa comercial asociada a factura de actividad
+- edicion de actividad por modal
 
 ## Lo que sigue en estado de prueba
 
