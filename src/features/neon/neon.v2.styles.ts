@@ -67,9 +67,27 @@ export const companySwitcherInnerStyle: CSSProperties = {
   flexWrap: "wrap"
 };
 
+export const companySwitcherBrandStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  flexWrap: "wrap"
+};
+
+export const companySwitcherIconWrapStyle: CSSProperties = {
+  width: 44,
+  height: 44,
+  borderRadius: 14,
+  display: "grid",
+  placeItems: "center",
+  border: `1px solid ${COLORS.border}`,
+  background: "radial-gradient(circle at 50% 30%, rgba(129, 244, 231, 0.42) 0%, rgba(74, 98, 124, 0.18) 45%, rgba(248, 244, 236, 0.96) 100%)",
+  boxShadow: "0 0 18px rgba(104, 230, 214, 0.18)"
+};
+
 export const companySwitcherLabelStyle: CSSProperties = {
   color: COLORS.inkSoft,
-  fontSize: 13,
+  fontSize: 16,
   fontWeight: 800,
   letterSpacing: "0.08em",
   textTransform: "uppercase"
@@ -280,7 +298,8 @@ export const listItemMetaStyle: CSSProperties = {
 
 export const listItemMoneyStyle: CSSProperties = {
   color: COLORS.ink,
-  whiteSpace: "nowrap"
+  whiteSpace: "nowrap",
+  fontWeight: 700
 };
 
 export const emptyTextStyle: CSSProperties = {

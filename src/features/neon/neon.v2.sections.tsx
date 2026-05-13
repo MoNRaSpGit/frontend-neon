@@ -22,8 +22,10 @@ import {
 } from "./neon.v2.dashboard";
 import { createEmptyJournalAllocation, getJournalAllocationDestinationLabel } from "./neon.v2.journal";
 import {
+  companySwitcherBrandStyle,
   companySwitcherButtonStyle,
   companySwitcherButtonsStyle,
+  companySwitcherIconWrapStyle,
   companySwitcherInnerStyle,
   companySwitcherLabelStyle,
   companySwitcherStyle,
@@ -156,10 +158,10 @@ function getResultTone(value: number) {
 function getCenterScopeSelectPlaceholder(scope: ReportCenterScope) {
   if (scope === "activity") return "Elegir actividad";
   if (scope === "vehicle") return "Elegir vehiculo";
-  if (scope === "personal") return "Elegir centro personal";
+  if (scope === "personal") return "Elegir centro de costo personal";
   if (scope === "rental") return "Elegir alquiler";
-  if (scope === "other") return "Elegir centro";
-  return "Elegir centro";
+  if (scope === "other") return "Elegir centro de costo";
+  return "Elegir centro de costo";
 }
 
 function getInvoiceSummary(activity: Pick<NeonActivity, "invoiceDate" | "invoicedAmount" | "invoiceCompanyKey">) {
@@ -177,7 +179,7 @@ const WORKSPACE_VIEWS: Array<{ value: NeonWorkspaceView; label: string; descript
   { value: "overview", label: "Resumen", description: "Metricas, deuda y panorama general" },
   { value: "activities", label: "Actividades", description: "Clientes y trabajos" },
   { value: "reports", label: "Reportes", description: "Lectura financiera y operativa" },
-  { value: "centers", label: "Centros", description: "Centros de costo de todo Neon" }
+  { value: "centers", label: "Centros de costo", description: "Centros de costo de todo Neon" }
 ];
 const COMPANY_OPTIONS: Array<{ value: NeonCompanyKey; label: string; hint: string }> = [
   { value: "empresa_verde", label: "Empresa A", hint: "Control comercial de facturacion y cobros" },
@@ -193,6 +195,7 @@ const SUGGESTED_ACCOUNT_PRESETS: Array<{ name: string; accountType: AccountFormS
   { name: "Credito", accountType: "credit" }
 ];
 const CREDIT_CARD_PRESETS = ["Visa Itau", "Master BBVA", "Porto Seguro"];
+const EXPANDABLE_LIST_STEP = 3;
 const ACTIVITY_STATUS_OPTIONS: Array<{
   value: ActivityFormState["commercialStatus"];
   label: string;
@@ -206,6 +209,45 @@ function getEditableCenterScopeLabel(scope: NeonCostCenterScope) {
   if (scope === "personal") return "Personal";
   if (scope === "rental") return "Alquileres";
   return "Otros";
+}
+
+function getActivityPendingAmount(activities: NeonActivity[], activityId: string) {
+  const selectedActivity = activities.find((activity) => String(activity.id) === activityId);
+  return selectedActivity ? selectedActivity.pendingAmount : 0;
+}
+
+function NeonBrandIcon() {
+  return (
+    <div style={companySwitcherIconWrapStyle} aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="neonGlow">
+            <feGaussianBlur stdDeviation="1.3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <path
+          d="M6 21V7.5L15.5 17V7"
+          stroke="#62F1DF"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#neonGlow)"
+        />
+        <path
+          d="M19.5 7H22V21H19.5"
+          stroke="#8AF8EA"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter="url(#neonGlow)"
+        />
+      </svg>
+    </div>
+  );
 }
 
 function matchesReportPeriod(entry: NeonJournalEntry, filter: ReportPeriodFilter) {
@@ -288,7 +330,21 @@ export function NeonV2HomeSections({
 }: HomeSectionsProps) {
   const activeCompanyLabel = getCompanyLabel(activeCompany);
   const activeCommercialSummary = buildCommercialSummaryByCompany(activities, activeCompany);
-  const journalDifference = Number(journalForm.totalAmount || 0) - journalAllocationTotal;
+  const selectableActivitiesForJournal =
+    journalForm.movementType === "income" ? activities.filter((activity) => activity.pendingAmount > 0) : activities;
+  const hasSingleIncomeActivityAllocation =
+    journalForm.movementType === "income" &&
+    journalForm.allocations.length === 1 &&
+    journalForm.allocations[0]?.destinationType === "activity" &&
+    Boolean(journalForm.allocations[0]?.destinationActivityId);
+  const selectedSingleIncomeActivity = hasSingleIncomeActivityAllocation
+    ? activities.find((activity) => String(activity.id) === journalForm.allocations[0]?.destinationActivityId)
+    : null;
+  const effectiveJournalTotalAmount = hasSingleIncomeActivityAllocation ? journalAllocationTotal : Number(journalForm.totalAmount || 0);
+  const journalDifference = effectiveJournalTotalAmount - journalAllocationTotal;
+  const displayedJournalTotalAmount = selectedSingleIncomeActivity
+    ? String(selectedSingleIncomeActivity.pendingAmount)
+    : journalForm.totalAmount;
   const selectedJournalAccount = accounts.find((account) => String(account.id) === journalForm.accountId);
   const journalUsesCredit = selectedJournalAccount?.accountType === "credit";
   const isCreditSettlement = journalForm.expenseKind === "credit_settlement";
@@ -301,6 +357,7 @@ export function NeonV2HomeSections({
   const [reportCenterKey, setReportCenterKey] = useState("");
   const [reportAccountId, setReportAccountId] = useState("");
   const [reportSearch, setReportSearch] = useState("");
+  const [visibleItemsByList, setVisibleItemsByList] = useState<Record<string, number>>({});
   const costCenterOptionsByScope = useMemo(() => {
     const grouped = {
       vehicle: [] as string[],
@@ -365,12 +422,62 @@ export function NeonV2HomeSections({
     return status === "pendiente_de_facturar" || status === "pendiente_de_cobrar";
   });
 
+  function getVisibleItemCount(listKey: string) {
+    return visibleItemsByList[listKey] ?? EXPANDABLE_LIST_STEP;
+  }
+
+  function getVisibleItems<T>(listKey: string, items: T[]) {
+    return items.slice(0, getVisibleItemCount(listKey));
+  }
+
+  function toggleVisibleItems(listKey: string, totalItems: number) {
+    setVisibleItemsByList((current) => {
+      const visibleCount = current[listKey] ?? EXPANDABLE_LIST_STEP;
+      let nextVisibleCount = EXPANDABLE_LIST_STEP;
+
+      if (visibleCount <= EXPANDABLE_LIST_STEP) {
+        nextVisibleCount = Math.min(totalItems, EXPANDABLE_LIST_STEP * 2);
+      } else if (visibleCount < totalItems) {
+        nextVisibleCount = totalItems;
+      }
+
+      return {
+        ...current,
+        [listKey]: nextVisibleCount
+      };
+    });
+  }
+
+  function getVisibleItemsButtonLabel(listKey: string, totalItems: number) {
+    const visibleCount = getVisibleItemCount(listKey);
+    if (visibleCount >= totalItems) {
+      return "Mostrar menos";
+    }
+
+    return visibleCount <= EXPANDABLE_LIST_STEP ? "Mostrar 3 mas" : "Mostrar todo";
+  }
+
+  function renderVisibleItemsButton(listKey: string, totalItems: number) {
+    if (totalItems <= EXPANDABLE_LIST_STEP) {
+      return null;
+    }
+
+    return (
+      <button type="button" onClick={() => toggleVisibleItems(listKey, totalItems)} style={secondaryButtonStyle}>
+        {getVisibleItemsButtonLabel(listKey, totalItems)}
+      </button>
+    );
+  }
+
   return (
     <>
       <section style={workspaceNavWrapStyle}>
         <div style={companySwitcherStyle}>
           <div style={companySwitcherInnerStyle}>
-            <span style={companySwitcherLabelStyle}>Empresa para control comercial: {activeCompanyLabel}</span>
+            <div style={companySwitcherBrandStyle}>
+              <NeonBrandIcon />
+              <span style={companySwitcherLabelStyle}>Neon</span>
+            </div>
             <div style={companySwitcherButtonsStyle}>
               {COMPANY_OPTIONS.map((company) => {
                 const isActive = activeCompany === company.value;
@@ -482,7 +589,7 @@ export function NeonV2HomeSections({
         <article style={panelStyle}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Centros de costo</h2>
-            <span style={panelCaptionStyle}>Alta, correccion y control de centros propios para todo Neon.</span>
+            <span style={panelCaptionStyle}>Alta, correccion y control de centros de costo propios para todo Neon.</span>
           </header>
 
           <form onSubmit={onCreateCostCenter} style={formStyle}>
@@ -514,7 +621,7 @@ export function NeonV2HomeSections({
                 />
               </label>
             <button type="submit" style={primaryButtonStyle}>
-              Guardar centro
+              Guardar centro de costo
             </button>
           </form>
 
@@ -553,7 +660,7 @@ export function NeonV2HomeSections({
                       </div>
                     ))}
                     {scopedCenters.length === 0 ? (
-                      <p style={emptyTextStyle}>Todavia no hay centros de este tipo.</p>
+                      <p style={emptyTextStyle}>Todavia no hay centros de costo de este tipo.</p>
                     ) : null}
                   </div>
                 </div>
@@ -852,7 +959,7 @@ export function NeonV2HomeSections({
         <article style={panelStyle}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Libro diario</h2>
-            <span style={panelCaptionStyle}>Primero registras el movimiento. Despues indicas de donde sale o entra y finalmente a que centros va.</span>
+            <span style={panelCaptionStyle}>Primero registras el movimiento. Despues indicas de donde sale o entra y finalmente a que centros de costo va.</span>
           </header>
 
           <form onSubmit={onCreateJournalEntry} style={formStyle}>
@@ -863,7 +970,16 @@ export function NeonV2HomeSections({
                 onChange={(event) =>
                   setJournalForm((current) => ({
                     ...current,
-                    movementType: event.target.value as JournalFormState["movementType"]
+                    movementType: event.target.value as JournalFormState["movementType"],
+                    totalAmount: "",
+                    allocations: current.allocations.map((allocation) => ({
+                      ...allocation,
+                      destinationActivityId: "",
+                      destinationLabel: "",
+                      amount: "",
+                      kilometers: "",
+                      liters: ""
+                    }))
                   }))
                 }
                 style={inputStyle}
@@ -902,10 +1018,11 @@ export function NeonV2HomeSections({
                 type="number"
                 min="0.01"
                 step="0.01"
-                value={journalForm.totalAmount}
+                value={displayedJournalTotalAmount}
                 onChange={(event) => setJournalForm((current) => ({ ...current, totalAmount: event.target.value }))}
                 style={inputStyle}
                 placeholder="0"
+                readOnly={hasSingleIncomeActivityAllocation}
               />
             </label>
             {journalForm.movementType !== "expense" ? (
@@ -1023,7 +1140,7 @@ export function NeonV2HomeSections({
                 <div style={{ display: "grid", gap: 4 }}>
                   <h3 style={subPanelTitleStyle}>4. A donde va este dinero</h3>
                   <span style={panelCaptionStyle}>
-                    Cada linea representa una parte del movimiento. Si no usás una linea, dejala sin centro y sin monto.
+                    Cada linea representa una parte del movimiento. Si no usás una linea, dejala sin centro de costo y sin monto.
                   </span>
                 </div>
                 <button
@@ -1066,16 +1183,26 @@ export function NeonV2HomeSections({
                         <span>Centro</span>
                         <select
                           value={allocation.destinationType}
-                          onChange={(event) =>
-                            updateJournalAllocation(setJournalForm, index, () => ({
-                              destinationType: event.target.value as JournalAllocationFormState["destinationType"],
-                              destinationActivityId: "",
-                              destinationLabel: "",
-                              amount: allocation.amount,
-                              kilometers: "",
-                              liters: ""
-                            }))
-                          }
+                          onChange={(event) => {
+                            const nextDestinationType = event.target.value as JournalAllocationFormState["destinationType"];
+
+                            setJournalForm((current) => ({
+                              ...current,
+                              totalAmount: current.movementType === "income" && current.allocations.length === 1 ? "" : current.totalAmount,
+                              allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                allocationIndex === index
+                                  ? {
+                                      destinationType: nextDestinationType,
+                                      destinationActivityId: "",
+                                      destinationLabel: "",
+                                      amount: "",
+                                      kilometers: "",
+                                      liters: ""
+                                    }
+                                  : currentAllocation
+                              )
+                            }));
+                          }}
                           style={inputStyle}
                         >
                           <option value="">Sin asignar</option>
@@ -1094,12 +1221,25 @@ export function NeonV2HomeSections({
                           min="0.01"
                           step="0.01"
                           value={allocation.amount}
-                          onChange={(event) =>
-                            updateJournalAllocation(setJournalForm, index, (current) => ({
-                              ...current,
-                              amount: event.target.value
-                            }))
-                          }
+                          onChange={(event) => {
+                            const nextAmount = event.target.value;
+
+                            setJournalForm((current) => {
+                              const nextAllocations = current.allocations.map((currentAllocation, allocationIndex) =>
+                                allocationIndex === index
+                                  ? {
+                                      ...currentAllocation,
+                                      amount: nextAmount
+                                    }
+                                  : currentAllocation
+                              );
+
+                              return {
+                                ...current,
+                                allocations: nextAllocations
+                              };
+                            });
+                          }}
                           style={inputStyle}
                           placeholder="0"
                         />
@@ -1110,16 +1250,41 @@ export function NeonV2HomeSections({
                           <span>Actividad</span>
                           <select
                             value={allocation.destinationActivityId}
-                            onChange={(event) =>
-                              updateJournalAllocation(setJournalForm, index, (current) => ({
-                                ...current,
-                                destinationActivityId: event.target.value
-                              }))
-                            }
+                            onChange={(event) => {
+                              const nextActivityId = event.target.value;
+                              const suggestedAmount =
+                                journalForm.movementType === "income" ? getActivityPendingAmount(activities, nextActivityId) : 0;
+
+                              setJournalForm((current) => {
+                                const nextAllocations = current.allocations.map((currentAllocation, allocationIndex) =>
+                                  allocationIndex === index
+                                    ? {
+                                        ...currentAllocation,
+                                        destinationActivityId: nextActivityId,
+                                        amount:
+                                          current.movementType === "income" && nextActivityId
+                                            ? String(suggestedAmount)
+                                            : currentAllocation.amount
+                                      }
+                                    : currentAllocation
+                                );
+
+                                const nextTotalAmount =
+                                  current.movementType === "income" && current.allocations.length === 1 && nextActivityId
+                                    ? String(suggestedAmount)
+                                    : current.totalAmount;
+
+                                return {
+                                  ...current,
+                                  totalAmount: nextTotalAmount,
+                                  allocations: nextAllocations
+                                };
+                              });
+                            }}
                             style={inputStyle}
                           >
                             <option value="">Elegir actividad</option>
-                            {activities.map((activity) => (
+                            {selectableActivitiesForJournal.map((activity) => (
                               <option key={activity.id} value={activity.id}>
                                 {formatActivityCode(activity)} · {activity.description}
                               </option>
@@ -1485,36 +1650,39 @@ export function NeonV2HomeSections({
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Actividades pendientes</h3>
             <div style={listStyle}>
-              {pendingCommercialActivities.slice(0, 12).map((activity) => (
+              {getVisibleItems("overview-pending-activities", pendingCommercialActivities).map((activity) => (
                   <div key={`activity-pending-${activity.id}`} style={listItemStyle}>
                     <div>
                       <strong style={listItemTitleStyle}>
                         {formatActivityCode(activity)} · {activity.description}
                       </strong>
-                      <span style={listItemMetaStyle}>{activity.clientName || "Sin cliente"}</span>
                       <span style={listItemMetaStyle}>
-                        Estado: {getCommercialStatusLabel(deriveCommercialStatus(activity))} · Cotizado {formatMoney(activity.quotedAmount)}
+                        {activity.clientName || "Sin cliente"} · {getCommercialStatusLabel(deriveCommercialStatus(activity))}
                       </span>
                       {getInvoiceSummary(activity) ? <span style={listItemMetaStyle}>{getInvoiceSummary(activity)}</span> : null}
-                      <span style={listItemMetaStyle}>Estado comercial: {getCommercialStatusLabel(deriveCommercialStatus(activity))}</span>
-                      <span style={listItemMetaStyle}>Cobrado {formatMoney(activity.collectedAmount)} Â· Pendiente {formatMoney(activity.pendingAmount)}</span>
+                      <span style={listItemMetaStyle}>
+                        Cotizado {formatMoney(activity.quotedAmount)} Â· Cobrado {formatMoney(activity.collectedAmount)} Â· Pendiente {formatMoney(activity.pendingAmount)}
+                      </span>
                     </div>
-                    <strong style={{ ...listItemMoneyStyle, color: getResultTone(activity.pendingAmount > 0 ? -activity.pendingAmount : activity.collectedAmount) }}>
-                      {activity.pendingAmount > 0 ? formatMoney(activity.pendingAmount) : formatMoney(activity.collectedAmount)}
-                    </strong>
-                    <button type="button" onClick={() => onStartActivityEdit(activity.id)} style={secondaryButtonStyle}>
-                      Editar
-                    </button>
+                    <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+                      <strong style={{ ...listItemMoneyStyle, color: getResultTone(activity.pendingAmount > 0 ? -activity.pendingAmount : activity.collectedAmount) }}>
+                        {activity.pendingAmount > 0 ? formatMoney(activity.pendingAmount) : formatMoney(activity.collectedAmount)}
+                      </strong>
+                      <button type="button" onClick={() => onStartActivityEdit(activity.id)} style={secondaryButtonStyle}>
+                        Editar
+                      </button>
+                    </div>
                   </div>
                 ))}
               {!loading && pendingCommercialActivities.length === 0 ? <p style={emptyTextStyle}>No hay actividades pendientes ahora.</p> : null}
+              {renderVisibleItemsButton("overview-pending-activities", pendingCommercialActivities.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Todas las actividades</h3>
             <div style={listStyle}>
-              {activities.slice(0, 16).map((activity) => (
+              {getVisibleItems("overview-all-activities", activities).map((activity) => (
                 <div key={`activity-all-${activity.id}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>
@@ -1525,18 +1693,21 @@ export function NeonV2HomeSections({
                     </span>
                     {getInvoiceSummary(activity) ? <span style={listItemMetaStyle}>{getInvoiceSummary(activity)}</span> : null}
                     <span style={listItemMetaStyle}>
-                      Cotizado {formatMoney(activity.quotedAmount)} · Cobrado {formatMoney(activity.collectedAmount)} · Pendiente {formatMoney(activity.pendingAmount)}
+                      Cotizado {formatMoney(activity.quotedAmount)} Â· Cobrado {formatMoney(activity.collectedAmount)} Â· Pendiente {formatMoney(activity.pendingAmount)}
                     </span>
                   </div>
-                  <strong style={{ ...listItemMoneyStyle, color: getResultTone(activity.pendingAmount > 0 ? -activity.pendingAmount : activity.collectedAmount) }}>
-                    {formatMoney(activity.quotedAmount)}
-                  </strong>
-                  <button type="button" onClick={() => onStartActivityEdit(activity.id)} style={secondaryButtonStyle}>
-                    Editar
-                  </button>
+                  <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+                    <strong style={{ ...listItemMoneyStyle, color: getResultTone(activity.pendingAmount > 0 ? -activity.pendingAmount : activity.collectedAmount) }}>
+                      {activity.pendingAmount > 0 ? formatMoney(activity.pendingAmount) : formatMoney(activity.quotedAmount)}
+                    </strong>
+                    <button type="button" onClick={() => onStartActivityEdit(activity.id)} style={secondaryButtonStyle}>
+                      Editar
+                    </button>
+                  </div>
                 </div>
               ))}
               {!loading && activities.length === 0 ? <p style={emptyTextStyle}>Todavia no hay actividades.</p> : null}
+              {renderVisibleItemsButton("overview-all-activities", activities.length)}
             </div>
           </div>
         </article>
@@ -1654,7 +1825,7 @@ export function NeonV2HomeSections({
             <h3 style={subPanelTitleStyle}>Gastos e ingresos por centro de costo</h3>
             <div style={formStyle}>
               <label style={fieldStyle}>
-                <span>Tipo de centro</span>
+                <span>Tipo de centro de costo</span>
                 <select
                   value={reportCenterScopeDraft}
                   onChange={(event) => {
@@ -1723,7 +1894,7 @@ export function NeonV2HomeSections({
               </button>
             </div>
             <span style={panelCaptionStyle}>
-              Primero elegis el tipo y despues el centro puntual. Esto ya toma los centros creados en la pestaña `Centros`.
+              Primero elegis el tipo y despues el centro de costo puntual. Esto ya toma los centros creados en la pestaña `Centros de costo`.
             </span>
           </div>
 
@@ -1858,7 +2029,7 @@ export function NeonV2HomeSections({
                         <strong style={{ ...metricValueStyle, color: COLORS.incomeAccent }}>
                           {formatDirectionalMoney(reportStory.totalIncomeAmount, "income")}
                         </strong>
-                        <span style={metricCaptionStyle}>Solo lo asignado a este centro</span>
+                        <span style={metricCaptionStyle}>Solo lo asignado a este centro de costo</span>
                       </article>
                       <article style={{ ...metricCardStyle, background: COLORS.accountBg }}>
                         <span style={metricLabelStyle}>Resultado</span>
@@ -1875,9 +2046,9 @@ export function NeonV2HomeSections({
           </div>
 
           <div style={subPanelStyle}>
-            <h3 style={subPanelTitleStyle}>Movimientos del centro</h3>
+            <h3 style={subPanelTitleStyle}>Movimientos del centro de costo</h3>
             <div style={listStyle}>
-              {reportCenterKey ? reportStory.items.map((item) => (
+              {reportCenterKey ? getVisibleItems("report-center-story", reportStory.items).map((item) => (
                 <div key={`story-${item.centerScope}-${item.movementId}-${item.centerLabel}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>
@@ -1914,8 +2085,9 @@ export function NeonV2HomeSections({
                 </div>
               )) : null}
               {reportCenterKey && reportStory.items.length === 0 ? (
-                <p style={emptyTextStyle}>No hay movimientos para esa combinacion de fechas, centro, cuenta y busqueda.</p>
+                <p style={emptyTextStyle}>No hay movimientos para esa combinacion de fechas, centro de costo, cuenta y busqueda.</p>
               ) : null}
+              {reportCenterKey ? renderVisibleItemsButton("report-center-story", reportStory.items.length) : null}
               {!reportCenterKey ? <p style={emptyTextStyle}>Primero elegi un centro de costo arriba.</p> : null}
             </div>
           </div>
@@ -1923,7 +2095,7 @@ export function NeonV2HomeSections({
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Libro diario filtrado</h3>
             <div style={listStyle}>
-              {filteredReportEntries.slice(0, 12).map((entry) => {
+              {getVisibleItems("report-filtered-journal", filteredReportEntries).map((entry) => {
                 const allocationLabels = entry.allocations.slice(0, 2).map(getJournalAllocationDestinationLabel);
                 const remainingAllocations = Math.max(entry.allocations.length - allocationLabels.length, 0);
 
@@ -1972,13 +2144,14 @@ export function NeonV2HomeSections({
                 );
               })}
               {!loading && filteredReportEntries.length === 0 ? <p style={emptyTextStyle}>No hay movimientos para el periodo elegido.</p> : null}
+              {renderVisibleItemsButton("report-filtered-journal", filteredReportEntries.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Actividades</h3>
             <div style={listStyle}>
-              {activities.slice(0, 12).map((activity) => (
+              {getVisibleItems("report-activities", activities).map((activity) => (
                 <div key={activity.id} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>
@@ -1993,13 +2166,14 @@ export function NeonV2HomeSections({
                 </div>
               ))}
               {!loading && activities.length === 0 ? <p style={emptyTextStyle}>Todavia no hay actividades.</p> : null}
+              {renderVisibleItemsButton("report-activities", activities.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Saldos de cuentas</h3>
             <div style={listStyle}>
-              {dashboard.accountReports.map((account) => (
+              {getVisibleItems("report-account-balances", dashboard.accountReports).map((account) => (
                 <div key={`account-report-${account.accountId}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>
@@ -2020,17 +2194,18 @@ export function NeonV2HomeSections({
                 </div>
               ))}
               {dashboard.accountReports.length === 0 ? <p style={emptyTextStyle}>Todavia no hay cuentas para reportar.</p> : null}
+              {renderVisibleItemsButton("report-account-balances", dashboard.accountReports.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
-            <h3 style={subPanelTitleStyle}>Gastos por centro</h3>
+            <h3 style={subPanelTitleStyle}>Gastos por centro de costo</h3>
             <div style={listStyle}>
-              {dashboard.topExpenseCenters.map((bucket) => (
+              {getVisibleItems("report-expense-centers", dashboard.topExpenseCenters).map((bucket) => (
                 <div key={`expense-${bucket.label}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>{bucket.label}</strong>
-                    <span style={listItemMetaStyle}>{bucket.count} linea(s) de gasto</span>
+                    <span style={listItemMetaStyle}>{bucket.count} gasto(s) asignado(s)</span>
                   </div>
                   <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>
                     {formatDirectionalMoney(bucket.amount, "expense")}
@@ -2040,13 +2215,14 @@ export function NeonV2HomeSections({
               {dashboard.topExpenseCenters.length === 0 ? (
                 <p style={emptyTextStyle}>Todavia no hay gastos asignados a centros de costo.</p>
               ) : null}
+              {renderVisibleItemsButton("report-expense-centers", dashboard.topExpenseCenters.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Actividades pendientes</h3>
             <div style={listStyle}>
-              {pendingCommercialActivities.slice(0, 12).map((activity) => (
+              {getVisibleItems("report-pending-activities", pendingCommercialActivities).map((activity) => (
                   <div key={`report-activity-pending-${activity.id}`} style={listItemStyle}>
                     <div>
                       <strong style={listItemTitleStyle}>
@@ -2062,15 +2238,16 @@ export function NeonV2HomeSections({
                       {formatMoney(activity.pendingAmount)}
                     </strong>
                   </div>
-                ))}
+              ))}
               {pendingCommercialActivities.length === 0 ? <p style={emptyTextStyle}>No hay actividades pendientes para controlar.</p> : null}
+              {renderVisibleItemsButton("report-pending-activities", pendingCommercialActivities.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Resultados por actividad</h3>
             <div style={listStyle}>
-              {dashboard.activityResults.slice(0, 12).map((activity) => (
+              {getVisibleItems("report-activity-results", dashboard.activityResults).map((activity) => (
                 <div key={`activity-result-${activity.activityId}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>{activity.activityLabel}</strong>
@@ -2091,6 +2268,7 @@ export function NeonV2HomeSections({
               {dashboard.activityResults.length === 0 ? (
                 <p style={emptyTextStyle}>Todavia no hay actividades con resultado para mostrar.</p>
               ) : null}
+              {renderVisibleItemsButton("report-activity-results", dashboard.activityResults.length)}
             </div>
           </div>
 
@@ -2143,7 +2321,7 @@ export function NeonV2HomeSections({
               </div>
             </div>
             <div style={listStyle}>
-              {dashboard.pendingDebtEntries.map((entry) => {
+              {getVisibleItems("report-pending-debt", dashboard.pendingDebtEntries).map((entry) => {
                 const isOverdue = Boolean(entry.dueDate && entry.dueDate < getTodayDateInputValue());
 
                 return (
@@ -2168,13 +2346,14 @@ export function NeonV2HomeSections({
               {dashboard.pendingDebtEntries.length === 0 ? (
                 <p style={emptyTextStyle}>No hay deuda pendiente para el filtro elegido.</p>
               ) : null}
+              {renderVisibleItemsButton("report-pending-debt", dashboard.pendingDebtEntries.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Deuda por tarjeta</h3>
             <div style={listStyle}>
-              {dashboard.pendingDebtByCard.map((bucket) => (
+              {getVisibleItems("report-debt-by-card", dashboard.pendingDebtByCard).map((bucket) => (
                 <div key={`debt-card-${bucket.label}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>{bucket.label}</strong>
@@ -2186,13 +2365,14 @@ export function NeonV2HomeSections({
               {dashboard.pendingDebtByCard.length === 0 ? (
                 <p style={emptyTextStyle}>Todavia no hay tarjetas con deuda acumulada.</p>
               ) : null}
+              {renderVisibleItemsButton("report-debt-by-card", dashboard.pendingDebtByCard.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Tarjetas y vencimientos</h3>
             <div style={listStyle}>
-              {dashboard.cardDebtSummaries.map((card) => (
+              {getVisibleItems("report-card-debt-summaries", dashboard.cardDebtSummaries).map((card) => (
                 <div key={`card-summary-${card.cardLabel}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>{card.cardLabel}</strong>
@@ -2216,13 +2396,14 @@ export function NeonV2HomeSections({
               {dashboard.cardDebtSummaries.length === 0 ? (
                 <p style={emptyTextStyle}>Todavia no hay tarjetas con vencimientos visibles.</p>
               ) : null}
+              {renderVisibleItemsButton("report-card-debt-summaries", dashboard.cardDebtSummaries.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Pagos de tarjeta recientes</h3>
             <div style={listStyle}>
-              {dashboard.recentCardSettlements.map((settlement) => (
+              {getVisibleItems("report-card-settlements", dashboard.recentCardSettlements).map((settlement) => (
                 <div key={`card-settlement-${settlement.movementId}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>{settlement.cardLabel}</strong>
@@ -2239,17 +2420,18 @@ export function NeonV2HomeSections({
               {dashboard.recentCardSettlements.length === 0 ? (
                 <p style={emptyTextStyle}>Todavia no hay pagos de tarjeta registrados.</p>
               ) : null}
+              {renderVisibleItemsButton("report-card-settlements", dashboard.recentCardSettlements.length)}
             </div>
           </div>
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Ingresos por actividad</h3>
             <div style={listStyle}>
-              {dashboard.topIncomeActivities.map((bucket) => (
+              {getVisibleItems("report-income-activities", dashboard.topIncomeActivities).map((bucket) => (
                 <div key={`income-${bucket.label}`} style={listItemStyle}>
                   <div>
                     <strong style={listItemTitleStyle}>{bucket.label}</strong>
-                    <span style={listItemMetaStyle}>{bucket.count} linea(s) de ingreso</span>
+                    <span style={listItemMetaStyle}>{bucket.count} ingreso(s) asignado(s)</span>
                   </div>
                   <strong style={{ ...listItemMoneyStyle, color: COLORS.incomeAccent }}>
                     {formatDirectionalMoney(bucket.amount, "income")}
@@ -2259,6 +2441,7 @@ export function NeonV2HomeSections({
               {dashboard.topIncomeActivities.length === 0 ? (
                 <p style={emptyTextStyle}>Todavia no hay ingresos asignados a actividades.</p>
               ) : null}
+              {renderVisibleItemsButton("report-income-activities", dashboard.topIncomeActivities.length)}
             </div>
           </div>
         </article>

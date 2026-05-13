@@ -264,10 +264,11 @@ function buildBuckets(entries: NeonJournalEntry[], limit: number) {
 
   for (const entry of entries) {
     if (entry.allocations.length === 0) {
-      const current = totals.get("Sin centro") || { label: "Sin centro", amount: 0, count: 0 };
+      const current =
+        totals.get("Sin centro de costo") || { label: "Sin centro de costo", amount: 0, count: 0 };
       current.amount += entry.totalAmount;
       current.count += 1;
-      totals.set("Sin centro", current);
+      totals.set("Sin centro de costo", current);
       continue;
     }
 
@@ -610,7 +611,9 @@ export function buildReportStory(
         accountName: entry.accountName,
         centerScope: "all" as const,
         centerLabel:
-          entry.allocations.length > 0 ? entry.allocations.slice(0, 2).map((allocation) => getAllocationStoryLabel(allocation)).join(" · ") : "Sin centro",
+          entry.allocations.length > 0
+            ? entry.allocations.slice(0, 2).map((allocation) => getAllocationStoryLabel(allocation)).join(" · ")
+            : "Sin centro de costo",
         providerName: entry.providerName,
         description: entry.description,
         documentRef: entry.documentRef,
@@ -685,7 +688,7 @@ export function buildReportStory(
             ? "Lectura puntual del gasto personal."
             : centerScope === "rental"
               ? "Lectura puntual del alquiler elegido."
-              : "Lectura puntual del centro elegido.",
+              : "Lectura puntual del centro de costo elegido.",
     centerScope,
     totalIncomeAmount,
     totalExpenseAmount,

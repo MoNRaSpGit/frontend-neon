@@ -2,6 +2,61 @@
 
 Fecha: 2026-05-07
 
+## Actualizacion De Cierre Local
+
+Queda asentado este corte como referencia interna.
+
+Estado al cerrar esta pasada:
+
+- el cliente ya esta usando la app
+- por eso se decide no seguir tocando flujo fuerte en este momento
+- cualquier cambio nuevo deberia entrar solo si destraba algo importante o si el cliente lo pide explicitamente
+
+## Donde Quedamos Hoy
+
+La interpretacion correcta del pedido del cliente ya no es:
+
+- `Neon` por un lado
+- `Móviles audiovisuales` por otro
+
+La separacion correcta ahora es:
+
+- `Empresa A`
+- `Empresa B`
+
+Y dentro de cada empresa siguen existiendo sus lineas:
+
+- `Neon`
+- `Móviles audiovisuales`
+- `Otros`
+
+Eso ya quedo ajustado en el frontend para que la empresa activa sea la empresa real y no la linea de trabajo.
+
+## Pendiente De Subir
+
+Queda pendiente de subir una mejora chica del aviso de actualizacion del frontend.
+
+La mejora ya quedo hecha en local pero no se sube todavia porque:
+
+- el cliente esta usando la app ahora
+- no queremos meter un deploy extra sin necesidad inmediata
+
+La mejora pendiente es esta:
+
+- ademas del chequeo por intervalo, el cartel de `hay una version nueva disponible` vuelve a chequear cuando la pestana recupera foco o vuelve a estar visible
+
+Objetivo de esa mejora:
+
+- hacer mas confiable la deteccion de nuevas versiones
+- evitar el caso donde el navegador duerme la pestana y no corre el chequeo a tiempo
+
+## Criterio Para Retomar
+
+Antes de volver a tocar producto conviene esperar una de estas dos cosas:
+
+1. devolucion directa del cliente usando esta version
+2. necesidad clara de subir la mejora pendiente del cartel de actualizacion
+
 ## Estado General
 
 La base actual de `Neon` esta en un punto funcional y bastante estable para una primera prueba real con usuario.

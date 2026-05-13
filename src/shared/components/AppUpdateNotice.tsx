@@ -24,10 +24,20 @@ export function AppUpdateNotice() {
     const intervalId = window.setInterval(() => {
       void checkForUpdates();
     }, UPDATE_CHECK_INTERVAL_MS);
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        void checkForUpdates();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
 
     return () => {
       mounted = false;
       window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
     };
   }, []);
 

@@ -33,9 +33,66 @@ import {
 } from "./neon.v2.types";
 
 const ACTIVE_COMPANY_STORAGE_KEY = "neon-active-company-v3";
-const COST_CENTERS_STORAGE_KEY = "neon-cost-centers-v3";
+const COST_CENTERS_STORAGE_KEY = "neon-cost-centers-v4";
 
-const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [];
+const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
+  {
+    id: "vehicle-toyota-raa1111",
+    companyKey: "empresa_verde",
+    scope: "vehicle",
+    label: "Toyota RAA1111",
+    createdAt: "2026-05-02T08:00:00.000-03:00"
+  },
+  {
+    id: "vehicle-micro-sah2222",
+    companyKey: "empresa_verde",
+    scope: "vehicle",
+    label: "Micro SAH2222",
+    createdAt: "2026-05-02T08:01:00.000-03:00"
+  },
+  {
+    id: "personal-casa",
+    companyKey: "empresa_verde",
+    scope: "personal",
+    label: "Casa",
+    createdAt: "2026-05-02T08:02:00.000-03:00"
+  },
+  {
+    id: "personal-uso-personal",
+    companyKey: "empresa_verde",
+    scope: "personal",
+    label: "Uso personal",
+    createdAt: "2026-05-02T08:03:00.000-03:00"
+  },
+  {
+    id: "rental-alq1",
+    companyKey: "empresa_verde",
+    scope: "rental",
+    label: "ALQ1",
+    createdAt: "2026-05-02T08:04:00.000-03:00"
+  },
+  {
+    id: "rental-alq2",
+    companyKey: "empresa_verde",
+    scope: "rental",
+    label: "ALQ2",
+    createdAt: "2026-05-02T08:05:00.000-03:00"
+  },
+  {
+    id: "other-generador",
+    companyKey: "empresa_verde",
+    scope: "other",
+    label: "Generador",
+    createdAt: "2026-05-02T08:06:00.000-03:00"
+  },
+  {
+    id: "other-herramientas",
+    companyKey: "empresa_verde",
+    scope: "other",
+    label: "Herramientas",
+    createdAt: "2026-05-02T08:07:00.000-03:00"
+  }
+];
 
 function getInitialActiveCompany(): NeonCompanyKey {
   if (typeof window === "undefined") {
@@ -366,12 +423,68 @@ export function NeonHomePage() {
   async function handleCreateJournalEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const totalAmount = Number(journalForm.totalAmount);
     const selectedAccount = accounts.find((account) => account.id === Number(journalForm.accountId));
     if (!journalForm.accountId) {
       toast.error("Campo faltante: Cuenta. Elegi desde que cuenta sale o entra el movimiento.");
       return;
     }
+
+    const normalizedAllocations: NeonJournalAllocationInput[] = journalForm.allocations
+      .filter(
+        (
+          allocation
+        ): allocation is typeof allocation & {
+          destinationType: NeonJournalAllocationInput["destinationType"];
+        } => Boolean(allocation.destinationType && allocation.amount.trim())
+      )
+      .map((allocation) => ({
+        destinationType: allocation.destinationType,
+        destinationActivityId: allocation.destinationActivityId ? Number(allocation.destinationActivityId) : undefined,
+        destinationLabel: allocation.destinationLabel.trim() || undefined,
+        amount: Number(allocation.amount),
+        kilometers: allocation.kilometers ? Number(allocation.kilometers) : undefined,
+        liters: allocation.liters ? Number(allocation.liters) : undefined
+      }));
+
+    for (const allocation of normalizedAllocations) {
+      if (!Number.isFinite(allocation.amount) || allocation.amount <= 0) {
+        toast.error("Campo invalido: Linea de asignacion. Cada linea debe tener un monto mayor a 0.");
+        return;
+      }
+
+      if (allocation.destinationType === "activity" && !allocation.destinationActivityId) {
+        toast.error("Campo faltante: Actividad en linea de asignacion. Elegi la actividad correspondiente.");
+        return;
+      }
+
+      if (
+        (allocation.destinationType === "vehicle" ||
+          allocation.destinationType === "personal" ||
+          allocation.destinationType === "rental" ||
+          allocation.destinationType === "other") &&
+        !allocation.destinationLabel
+      ) {
+        toast.error("Campo faltante: Etiqueta en linea de asignacion. Completa a que corresponde esa linea.");
+        return;
+      }
+
+      if (journalForm.movementType === "income" && allocation.destinationType === "activity" && allocation.destinationActivityId) {
+        const relatedActivity = activities.find((activity) => activity.id === allocation.destinationActivityId);
+        if (relatedActivity && allocation.amount > relatedActivity.pendingAmount) {
+          toast.error(
+            `Campo inconsistente: Cobro mayor al pendiente. La actividad ${relatedActivity.activityNumber}/${relatedActivity.activityYear} tiene pendiente ${relatedActivity.pendingAmount.toFixed(2)}.`
+          );
+          return;
+        }
+      }
+    }
+
+    const allocationTotal = normalizedAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    const usesSingleIncomeActivityAllocation =
+      journalForm.movementType === "income" &&
+      normalizedAllocations.length === 1 &&
+      normalizedAllocations[0]?.destinationType === "activity";
+    const totalAmount = usesSingleIncomeActivityAllocation ? allocationTotal : Number(journalForm.totalAmount);
 
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
       toast.error("Campo invalido: Monto total. Ingresa un numero mayor a 0.");
@@ -413,48 +526,7 @@ export function NeonHomePage() {
       }
     }
 
-    const normalizedAllocations: NeonJournalAllocationInput[] = journalForm.allocations
-      .filter(
-        (
-          allocation
-        ): allocation is typeof allocation & {
-          destinationType: NeonJournalAllocationInput["destinationType"];
-        } => Boolean(allocation.destinationType && allocation.amount.trim())
-      )
-      .map((allocation) => ({
-        destinationType: allocation.destinationType,
-        destinationActivityId: allocation.destinationActivityId ? Number(allocation.destinationActivityId) : undefined,
-        destinationLabel: allocation.destinationLabel.trim() || undefined,
-        amount: Number(allocation.amount),
-        kilometers: allocation.kilometers ? Number(allocation.kilometers) : undefined,
-        liters: allocation.liters ? Number(allocation.liters) : undefined
-      }));
-
-    for (const allocation of normalizedAllocations) {
-      if (!Number.isFinite(allocation.amount) || allocation.amount <= 0) {
-        toast.error("Campo invalido: Linea de asignacion. Cada linea debe tener un monto mayor a 0.");
-        return;
-      }
-
-      if (allocation.destinationType === "activity" && !allocation.destinationActivityId) {
-        toast.error("Campo faltante: Actividad en linea de asignacion. Elegi la actividad correspondiente.");
-        return;
-      }
-
-      if (
-        (allocation.destinationType === "vehicle" ||
-          allocation.destinationType === "personal" ||
-          allocation.destinationType === "rental" ||
-          allocation.destinationType === "other") &&
-        !allocation.destinationLabel
-      ) {
-        toast.error("Campo faltante: Etiqueta en linea de asignacion. Completa a que corresponde esa linea.");
-        return;
-      }
-    }
-
     if (normalizedAllocations.length > 0) {
-      const allocationTotal = normalizedAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
       if (Math.round(allocationTotal * 100) !== Math.round(totalAmount * 100)) {
         toast.error("Campos inconsistentes: Monto total y lineas de asignacion. La suma de las lineas debe coincidir exactamente con el monto total.");
         return;

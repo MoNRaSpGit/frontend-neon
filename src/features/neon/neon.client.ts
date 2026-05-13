@@ -53,12 +53,86 @@ type ExpenseCreationInput = {
   totalAmount: number;
 };
 
-const demoNow = "2026-05-06T21:30:00.000-03:00";
-const DEMO_STORAGE_KEY = "neon-demo-workspace-v3";
+const demoNow = "2026-05-13T21:30:00.000-03:00";
+const DEMO_STORAGE_KEY = "neon-demo-workspace-v4-commercial-flow";
 
-const seedClients: NeonClient[] = [];
+const seedClients: NeonClient[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    name: "Farmacia Centro",
+    phone: "099111111",
+    notes: "Cliente demo para Empresa A",
+    createdAt: "2026-05-02T09:00:00.000-03:00",
+    updatedAt: "2026-05-02T09:00:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    name: "Productora Litoral",
+    phone: "099222222",
+    notes: "Cliente demo para Empresa B",
+    createdAt: "2026-05-03T09:00:00.000-03:00",
+    updatedAt: "2026-05-03T09:00:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    name: "Local Pocitos",
+    phone: "099333333",
+    notes: "Cliente demo para actividad pendiente de facturar",
+    createdAt: "2026-05-04T09:00:00.000-03:00",
+    updatedAt: "2026-05-04T09:00:00.000-03:00"
+  }
+];
 
-const seedAccounts: MutableAccount[] = [];
+const seedAccounts: MutableAccount[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    name: "Caja $",
+    accountType: "cash",
+    openingBalance: 18000,
+    createdAt: "2026-05-02T08:30:00.000-03:00",
+    updatedAt: "2026-05-02T08:30:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    name: "BROU $",
+    accountType: "bank",
+    openingBalance: 45000,
+    createdAt: "2026-05-02T08:35:00.000-03:00",
+    updatedAt: "2026-05-02T08:35:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    name: "BBVA $",
+    accountType: "bank",
+    openingBalance: 22000,
+    createdAt: "2026-05-02T08:40:00.000-03:00",
+    updatedAt: "2026-05-02T08:40:00.000-03:00"
+  },
+  {
+    id: 4,
+    tenantId: DEMO_TENANT.id,
+    name: "ITAU U$S",
+    accountType: "bank",
+    openingBalance: 0,
+    createdAt: "2026-05-02T08:45:00.000-03:00",
+    updatedAt: "2026-05-02T08:45:00.000-03:00"
+  },
+  {
+    id: 5,
+    tenantId: DEMO_TENANT.id,
+    name: "Credito",
+    accountType: "credit",
+    openingBalance: 0,
+    createdAt: "2026-05-02T08:50:00.000-03:00",
+    updatedAt: "2026-05-02T08:50:00.000-03:00"
+  }
+];
 
 const seedCategories: NeonCategory[] = [
   {
@@ -83,9 +157,751 @@ const seedCategories: NeonCategory[] = [
   }
 ];
 
-const seedActivities: MutableActivity[] = [];
+const seedActivities: MutableActivity[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    activityNumber: 14,
+    activityYear: 2026,
+    activityDate: "2026-05-02",
+    description: "Cartel exterior Farmacia Centro",
+    clientId: 1,
+    clientName: "Farmacia Centro",
+    activityType: "neon",
+    commercialStatus: "facturado",
+    quotedAmount: 18500,
+    invoiceDate: "2026-05-05",
+    invoicedAmount: 18500,
+    invoiceCompanyKey: "empresa_verde",
+    createdAt: "2026-05-02T10:00:00.000-03:00",
+    updatedAt: "2026-05-05T10:00:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    activityNumber: 15,
+    activityYear: 2026,
+    activityDate: "2026-05-03",
+    description: "Pantalla led evento invierno",
+    clientId: 2,
+    clientName: "Productora Litoral",
+    activityType: "movil_audiovisual",
+    commercialStatus: "facturado",
+    quotedAmount: 12800,
+    invoiceDate: "2026-05-06",
+    invoicedAmount: 12800,
+    invoiceCompanyKey: "empresa_negra",
+    createdAt: "2026-05-03T10:00:00.000-03:00",
+    updatedAt: "2026-05-06T10:00:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_c",
+    activityNumber: 16,
+    activityYear: 2026,
+    activityDate: "2026-05-07",
+    description: "Vidriera local Pocitos",
+    clientId: 3,
+    clientName: "Local Pocitos",
+    activityType: "neon",
+    commercialStatus: "pendiente_de_facturar",
+    quotedAmount: 9600,
+    invoiceDate: null,
+    invoicedAmount: null,
+    invoiceCompanyKey: null,
+    createdAt: "2026-05-07T10:00:00.000-03:00",
+    updatedAt: "2026-05-07T10:00:00.000-03:00"
+  },
+  {
+    id: 4,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    activityNumber: 17,
+    activityYear: 2026,
+    activityDate: "2026-05-08",
+    description: "Mantenimiento letras corporeas",
+    clientId: 1,
+    clientName: "Farmacia Centro",
+    activityType: "neon",
+    commercialStatus: "facturado",
+    quotedAmount: 6200,
+    invoiceDate: "2026-05-09",
+    invoicedAmount: 6200,
+    invoiceCompanyKey: "empresa_verde",
+    createdAt: "2026-05-08T10:00:00.000-03:00",
+    updatedAt: "2026-05-09T10:00:00.000-03:00"
+  },
+  {
+    id: 5,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    activityNumber: 18,
+    activityYear: 2026,
+    activityDate: "2026-05-09",
+    description: "Movil promocional ruta",
+    clientId: 2,
+    clientName: "Productora Litoral",
+    activityType: "movil_audiovisual",
+    commercialStatus: "facturado",
+    quotedAmount: 8400,
+    invoiceDate: "2026-05-10",
+    invoicedAmount: 8400,
+    invoiceCompanyKey: "empresa_negra",
+    createdAt: "2026-05-09T10:00:00.000-03:00",
+    updatedAt: "2026-05-10T10:00:00.000-03:00"
+  }
+];
 
-const seedJournalEntries: NeonJournalEntry[] = [];
+const seedJournalEntries: NeonJournalEntry[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "expense",
+    movementDate: "2026-05-02",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 2400,
+    description: "Adelanto de taller y materiales",
+    providerName: "Taller Centro",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "activity",
+    sourceActivityId: 1,
+    sourceActivityCode: "#14/2026",
+    sourceActivityDescription: "Cartel exterior Farmacia Centro",
+    allocations: [
+      {
+        id: 1,
+        destinationType: "activity",
+        destinationActivityId: 1,
+        destinationActivityCode: "#14/2026",
+        destinationActivityDescription: "Cartel exterior Farmacia Centro",
+        destinationLabel: null,
+        amount: 2400,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-02T11:00:00.000-03:00",
+    updatedAt: "2026-05-02T11:00:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "income",
+    movementDate: "2026-05-06",
+    accountId: 3,
+    accountName: "BBVA $",
+    totalAmount: 10000,
+    description: "Cobro parcial Farmacia Centro",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "activity",
+    sourceActivityId: 1,
+    sourceActivityCode: "#14/2026",
+    sourceActivityDescription: "Cartel exterior Farmacia Centro",
+    allocations: [
+      {
+        id: 2,
+        destinationType: "activity",
+        destinationActivityId: 1,
+        destinationActivityCode: "#14/2026",
+        destinationActivityDescription: "Cartel exterior Farmacia Centro",
+        destinationLabel: null,
+        amount: 10000,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-06T12:00:00.000-03:00",
+    updatedAt: "2026-05-06T12:00:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    movementType: "expense",
+    movementDate: "2026-05-04",
+    accountId: 5,
+    accountName: "Credito",
+    totalAmount: 3100,
+    description: "Materiales pantalla led",
+    providerName: "Insumos Display",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: "Visa Itau",
+    dueDate: "2026-05-20",
+    sourceType: "activity",
+    sourceActivityId: 2,
+    sourceActivityCode: "#15/2026",
+    sourceActivityDescription: "Pantalla led evento invierno",
+    allocations: [
+      {
+        id: 3,
+        destinationType: "activity",
+        destinationActivityId: 2,
+        destinationActivityCode: "#15/2026",
+        destinationActivityDescription: "Pantalla led evento invierno",
+        destinationLabel: null,
+        amount: 3100,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-04T15:00:00.000-03:00",
+    updatedAt: "2026-05-04T15:00:00.000-03:00"
+  },
+  {
+    id: 4,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    movementType: "income",
+    movementDate: "2026-05-10",
+    accountId: 2,
+    accountName: "BROU $",
+    totalAmount: 12800,
+    description: "Cobro total Pantalla led evento invierno",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "activity",
+    sourceActivityId: 2,
+    sourceActivityCode: "#15/2026",
+    sourceActivityDescription: "Pantalla led evento invierno",
+    allocations: [
+      {
+        id: 4,
+        destinationType: "activity",
+        destinationActivityId: 2,
+        destinationActivityCode: "#15/2026",
+        destinationActivityDescription: "Pantalla led evento invierno",
+        destinationLabel: null,
+        amount: 12800,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-10T12:00:00.000-03:00",
+    updatedAt: "2026-05-10T12:00:00.000-03:00"
+  },
+  {
+    id: 5,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_c",
+    movementType: "expense",
+    movementDate: "2026-05-08",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 1800,
+    description: "Vinilo y traslado vidriera",
+    providerName: "Plotter Sur",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "activity",
+    sourceActivityId: 3,
+    sourceActivityCode: "#16/2026",
+    sourceActivityDescription: "Vidriera local Pocitos",
+    allocations: [
+      {
+        id: 5,
+        destinationType: "activity",
+        destinationActivityId: 3,
+        destinationActivityCode: "#16/2026",
+        destinationActivityDescription: "Vidriera local Pocitos",
+        destinationLabel: null,
+        amount: 1800,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-08T11:30:00.000-03:00",
+    updatedAt: "2026-05-08T11:30:00.000-03:00"
+  },
+  {
+    id: 6,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "expense",
+    movementDate: "2026-05-09",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 900,
+    description: "Mantenimiento y fijaciones",
+    providerName: "Ferreteria Norte",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "activity",
+    sourceActivityId: 4,
+    sourceActivityCode: "#17/2026",
+    sourceActivityDescription: "Mantenimiento letras corporeas",
+    allocations: [
+      {
+        id: 6,
+        destinationType: "activity",
+        destinationActivityId: 4,
+        destinationActivityCode: "#17/2026",
+        destinationActivityDescription: "Mantenimiento letras corporeas",
+        destinationLabel: null,
+        amount: 900,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-09T12:00:00.000-03:00",
+    updatedAt: "2026-05-09T12:00:00.000-03:00"
+  },
+  {
+    id: 7,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    movementType: "expense",
+    movementDate: "2026-05-10",
+    accountId: 5,
+    accountName: "Credito",
+    totalAmount: 1500,
+    description: "Combustible movil promocional",
+    providerName: "Estacion America",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: "Master BBVA",
+    dueDate: "2026-05-22",
+    sourceType: "activity",
+    sourceActivityId: 5,
+    sourceActivityCode: "#18/2026",
+    sourceActivityDescription: "Movil promocional ruta",
+    allocations: [
+      {
+        id: 7,
+        destinationType: "activity",
+        destinationActivityId: 5,
+        destinationActivityCode: "#18/2026",
+        destinationActivityDescription: "Movil promocional ruta",
+        destinationLabel: null,
+        amount: 1500,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-10T10:15:00.000-03:00",
+    updatedAt: "2026-05-10T10:15:00.000-03:00"
+  },
+  {
+    id: 8,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    movementType: "income",
+    movementDate: "2026-05-11",
+    accountId: 3,
+    accountName: "BBVA $",
+    totalAmount: 3000,
+    description: "Entrega a cuenta movil promocional",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "activity",
+    sourceActivityId: 5,
+    sourceActivityCode: "#18/2026",
+    sourceActivityDescription: "Movil promocional ruta",
+    allocations: [
+      {
+        id: 8,
+        destinationType: "activity",
+        destinationActivityId: 5,
+        destinationActivityCode: "#18/2026",
+        destinationActivityDescription: "Movil promocional ruta",
+        destinationLabel: null,
+        amount: 3000,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-11T17:00:00.000-03:00",
+    updatedAt: "2026-05-11T17:00:00.000-03:00"
+  },
+  {
+    id: 9,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "income",
+    movementDate: "2026-05-05",
+    accountId: 2,
+    accountName: "BROU $",
+    totalAmount: 15000,
+    description: "Cobro alquiler mayo",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 9,
+        destinationType: "rental",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "ALQ1",
+        amount: 15000,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-05T18:00:00.000-03:00",
+    updatedAt: "2026-05-05T18:00:00.000-03:00"
+  },
+  {
+    id: 10,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "expense",
+    movementDate: "2026-05-06",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 1200,
+    description: "Compra general de taller",
+    providerName: "Barraca Central",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 10,
+        destinationType: "other",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Herramientas",
+        amount: 1200,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-06T10:00:00.000-03:00",
+    updatedAt: "2026-05-06T10:00:00.000-03:00"
+  },
+  {
+    id: 11,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "expense",
+    movementDate: "2026-05-07",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 2800,
+    description: "Combustible y viaticos salida interior",
+    providerName: "Estacion Ruta 1",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 11,
+        destinationType: "vehicle",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Toyota RAA1111",
+        amount: 2100,
+        metadata: {
+          kilometers: 120540,
+          liters: 38
+        }
+      },
+      {
+        id: 12,
+        destinationType: "personal",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Uso personal",
+        amount: 700,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-07T19:00:00.000-03:00",
+    updatedAt: "2026-05-07T19:00:00.000-03:00"
+  },
+  {
+    id: 12,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "expense",
+    movementDate: "2026-05-08",
+    accountId: 5,
+    accountName: "Credito",
+    totalAmount: 3600,
+    description: "Cubiertas y service Micro",
+    providerName: "Gomeria del Puerto",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: "Porto Seguro",
+    dueDate: "2026-05-25",
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 13,
+        destinationType: "vehicle",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Micro SAH2222",
+        amount: 3600,
+        metadata: {
+          kilometers: 84500,
+          liters: null
+        }
+      }
+    ],
+    createdAt: "2026-05-08T16:00:00.000-03:00",
+    updatedAt: "2026-05-08T16:00:00.000-03:00"
+  },
+  {
+    id: 13,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "income",
+    movementDate: "2026-05-09",
+    accountId: 2,
+    accountName: "BROU $",
+    totalAmount: 6500,
+    description: "Cobro alquiler deposito ALQ2",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 14,
+        destinationType: "rental",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "ALQ2",
+        amount: 6500,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-09T14:00:00.000-03:00",
+    updatedAt: "2026-05-09T14:00:00.000-03:00"
+  },
+  {
+    id: 14,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "expense",
+    movementDate: "2026-05-10",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 950,
+    description: "Gastos de casa y traslado",
+    providerName: "Supermercado Parque",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 15,
+        destinationType: "personal",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Casa",
+        amount: 950,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-10T11:00:00.000-03:00",
+    updatedAt: "2026-05-10T11:00:00.000-03:00"
+  },
+  {
+    id: 15,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "income",
+    movementDate: "2026-05-11",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 1200,
+    description: "Reintegro personal",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 16,
+        destinationType: "personal",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Uso personal",
+        amount: 1200,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-11T12:30:00.000-03:00",
+    updatedAt: "2026-05-11T12:30:00.000-03:00"
+  },
+  {
+    id: 16,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "expense",
+    movementDate: "2026-05-12",
+    accountId: 1,
+    accountName: "Caja $",
+    totalAmount: 1700,
+    description: "Mantenimiento generador evento",
+    providerName: "Electromecanica Sur",
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: "operational",
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 17,
+        destinationType: "other",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Generador",
+        amount: 1700,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-12T10:45:00.000-03:00",
+    updatedAt: "2026-05-12T10:45:00.000-03:00"
+  },
+  {
+    id: 17,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    movementType: "income",
+    movementDate: "2026-05-12",
+    accountId: 3,
+    accountName: "BBVA $",
+    totalAmount: 2200,
+    description: "Alquiler generador feria",
+    providerName: null,
+    documentRef: null,
+    quantity: null,
+    unitLabel: null,
+    currencyCode: "UYU",
+    expenseKind: null,
+    creditCardLabel: null,
+    dueDate: null,
+    sourceType: "independent",
+    sourceActivityId: null,
+    sourceActivityCode: null,
+    sourceActivityDescription: null,
+    allocations: [
+      {
+        id: 18,
+        destinationType: "other",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Generador",
+        amount: 2200,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-12T18:00:00.000-03:00",
+    updatedAt: "2026-05-12T18:00:00.000-03:00"
+  }
+];
 let clientsStore = clone(seedClients);
 let accountsStore = clone(seedAccounts);
 let categoriesStore = clone(seedCategories);
