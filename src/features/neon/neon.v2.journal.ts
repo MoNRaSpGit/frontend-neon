@@ -6,6 +6,7 @@ export function createEmptyJournalAllocation(): JournalAllocationFormState {
     destinationType: "",
     destinationActivityId: "",
     destinationLabel: "",
+    customTypeLabel: "",
     amount: "",
     kilometers: "",
     liters: ""
@@ -15,6 +16,12 @@ export function createEmptyJournalAllocation(): JournalAllocationFormState {
 export function getJournalAllocationDestinationLabel(allocation: NeonJournalAllocation) {
   if (allocation.destinationType === "activity") {
     return allocation.destinationActivityCode || allocation.destinationActivityDescription || "Actividad";
+  }
+
+  if (allocation.destinationType === "custom") {
+    const typeLabel = typeof allocation.metadata?.typeLabel === "string" ? allocation.metadata.typeLabel.trim() : "";
+    const destinationLabel = allocation.destinationLabel || "Centro personalizado";
+    return typeLabel ? `${typeLabel} · ${destinationLabel}` : destinationLabel;
   }
 
   return allocation.destinationLabel || allocation.destinationType;

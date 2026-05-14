@@ -7,6 +7,11 @@ export function AppUpdateNotice() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    if (!import.meta.env.PROD) {
+      setShow(false);
+      return;
+    }
+
     let mounted = true;
     const checkForUpdates = async () => {
       try {

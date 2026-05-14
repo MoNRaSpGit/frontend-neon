@@ -1,6 +1,6 @@
 # Neon - Bitacora
 
-Fecha de actualizacion: 2026-05-13
+Fecha de actualizacion: 2026-05-14
 
 ## Regla de este archivo
 
@@ -106,6 +106,121 @@ Validaciones ejecutadas en `frontend-neon`:
 Observacion:
 
 - `npm test` no corrio por una restriccion del entorno local (`EPERM` sobre `C:\\Users\\ju4nr`) antes de ejecutar suites, asi que no se detecto un fallo funcional del modulo desde ese comando general
+
+## Corte 2026-05-14 - devolucion cliente Neon
+
+En este corte se implementaron y validaron los tres pedidos principales del cliente sobre el piloto:
+
+- `traspaso` entre cuentas
+- `explorar cuenta` con lectura puntual de movimientos
+- `tipo personalizado` en centros de costo
+
+### Traspaso
+
+Quedo agregado como tipo operativo nuevo del diario.
+
+Regla implementada:
+
+- sale dinero de una cuenta
+- entra el mismo importe en otra cuenta
+- impacta saldos
+- no se cuenta como ingreso real ni como gasto real en reportes
+
+### Explorar cuenta
+
+Quedo visible en `Reportes`.
+
+Permite:
+
+- elegir una cuenta puntual
+- ver ingresos, gastos y traspasos asociados a esa cuenta
+- borrar movimientos desde esa lectura
+- usar el mismo patron de lista:
+  - mostrar `3`
+  - mostrar `3` mas
+  - mostrar todo
+  - mostrar menos
+
+Tambien se reforzo el estilo de la cuenta seleccionada para que quede claro cual esta activa.
+
+### Centros de costo con tipo
+
+Se mantuvieron los tipos base:
+
+- `vehiculo`
+- `personal`
+- `alquiler`
+- `otros`
+
+Y ademas se agrego:
+
+- `tipo personalizado`
+
+Con esto el cliente puede crear estructuras como:
+
+- `Mano de obra`
+- `Logistica`
+- `Servicios`
+
+y despues elegir primero el tipo y luego el centro puntual al cargar un movimiento.
+
+### Demo y carga real
+
+Se agrego control simple para:
+
+- ocultar demo y limpiar workspace
+- restaurar demo
+
+Esto deja al cliente cargar datos propios sin perder la base de prueba.
+
+### Ajuste de rendimiento
+
+Despues de la prueba funcional aparecio una lentitud visible al escribir en inputs.
+
+La causa principal era que varias vistas grandes seguian montadas y recalculando aunque estuvieran ocultas.
+
+Se corrigio:
+
+- desmontando vistas no activas
+- evitando calculos pesados de `Reportes` fuera de esa vista
+
+Resultado esperado:
+
+- inputs mas fluidos en `Diario`
+- menos riesgo de degradacion UX por crecimiento de listas
+
+## PF tecnico del corte 2026-05-14
+
+Validaciones ejecutadas:
+
+- `npm run lint` OK
+- `npm run typecheck` OK
+- `npm run test:smoke` OK
+- `npm run build` OK
+
+Validacion real aplicada:
+
+- `traspaso` probado manualmente
+- `explorar cuenta` probado manualmente
+- ajuste visual de resumen de traspaso probado manualmente
+- mejora de rendimiento percibida y revalidada manualmente
+
+### Ajustes finales de UX y texto
+
+En el mismo corte se cerraron detalles chicos pero importantes para uso real con cliente:
+
+- `Explorar cuenta` ahora muestra `fecha - hora` en vez de `Cargado HH:mm`
+- se saneo `neon.v2.sections.tsx` a `UTF-8` para eliminar mojibake visible como `Ã`, `Â` y separadores rotos
+- el flujo `Limpiar` / `Restaurar demo` dejo de usar confirmacion nativa del navegador y paso a modal propio de Neon
+- el modal se reescribio con lenguaje cliente:
+  - `Borrar datos de ejemplo`
+  - `Seguro que deseas borrar los datos de ejemplo?`
+
+Impacto esperado:
+
+- menos ruido visual en reportes y exploracion
+- menos riesgo de textos quebrados por encoding
+- UX mas consistente y mas profesional en acciones sensibles
 
 ## Referencia historica relacionada
 

@@ -5,11 +5,13 @@ import {
   createNeonActivity,
   createNeonClient,
   createNeonJournalEntry,
+  deleteNeonJournalEntry,
   updateNeonActivity,
   listNeonAccounts,
   listNeonActivities,
   listNeonClients,
-  listNeonJournal
+  listNeonJournal,
+  resetNeonWorkspace
 } from "./neon.client";
 import { getTodayDateInputValue, toTitleCase } from "./neon.home.helpers";
 import { pageStyle } from "./neon.home.styles";
@@ -29,6 +31,8 @@ import {
   PendingEditCostCenterState,
   PendingDeleteCostCenterState,
   NeonWorkspaceView,
+  PendingDeleteJournalState,
+  PendingResetWorkspaceState,
   ReportPeriodFilter
 } from "./neon.v2.types";
 
@@ -40,6 +44,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "vehicle-toyota-raa1111",
     companyKey: "empresa_verde",
     scope: "vehicle",
+    typeLabel: null,
     label: "Toyota RAA1111",
     createdAt: "2026-05-02T08:00:00.000-03:00"
   },
@@ -47,6 +52,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "vehicle-micro-sah2222",
     companyKey: "empresa_verde",
     scope: "vehicle",
+    typeLabel: null,
     label: "Micro SAH2222",
     createdAt: "2026-05-02T08:01:00.000-03:00"
   },
@@ -54,6 +60,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "personal-casa",
     companyKey: "empresa_verde",
     scope: "personal",
+    typeLabel: null,
     label: "Casa",
     createdAt: "2026-05-02T08:02:00.000-03:00"
   },
@@ -61,6 +68,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "personal-uso-personal",
     companyKey: "empresa_verde",
     scope: "personal",
+    typeLabel: null,
     label: "Uso personal",
     createdAt: "2026-05-02T08:03:00.000-03:00"
   },
@@ -68,6 +76,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "rental-alq1",
     companyKey: "empresa_verde",
     scope: "rental",
+    typeLabel: null,
     label: "ALQ1",
     createdAt: "2026-05-02T08:04:00.000-03:00"
   },
@@ -75,6 +84,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "rental-alq2",
     companyKey: "empresa_verde",
     scope: "rental",
+    typeLabel: null,
     label: "ALQ2",
     createdAt: "2026-05-02T08:05:00.000-03:00"
   },
@@ -82,6 +92,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "other-generador",
     companyKey: "empresa_verde",
     scope: "other",
+    typeLabel: null,
     label: "Generador",
     createdAt: "2026-05-02T08:06:00.000-03:00"
   },
@@ -89,6 +100,7 @@ const DEFAULT_COST_CENTERS: NeonCostCenterRecord[] = [
     id: "other-herramientas",
     companyKey: "empresa_verde",
     scope: "other",
+    typeLabel: null,
     label: "Herramientas",
     createdAt: "2026-05-02T08:07:00.000-03:00"
   }
@@ -127,7 +139,10 @@ function getInitialCostCenters(): NeonCostCenterRecord[] {
       return DEFAULT_COST_CENTERS;
     }
 
-    return parsed;
+    return parsed.map((center) => ({
+      ...center,
+      typeLabel: center.typeLabel || null
+    }));
   } catch {
     return DEFAULT_COST_CENTERS;
   }
@@ -154,7 +169,10 @@ export function NeonHomePage() {
   const [editingActivityId, setEditingActivityId] = useState<number | null>(null);
   const [pendingEditCostCenter, setPendingEditCostCenter] = useState<PendingEditCostCenterState>(null);
   const [pendingDeleteCostCenter, setPendingDeleteCostCenter] = useState<PendingDeleteCostCenterState>(null);
+  const [pendingDeleteJournal, setPendingDeleteJournal] = useState<PendingDeleteJournalState>(null);
+  const [pendingResetWorkspace, setPendingResetWorkspace] = useState<PendingResetWorkspaceState>(null);
   const [activeView, setActiveView] = useState<NeonWorkspaceView>("idle");
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [clientForm, setClientForm] = useState<ClientFormState>({
     name: "",
     phone: "",
@@ -179,6 +197,7 @@ export function NeonHomePage() {
     movementType: "expense",
     movementDate: getTodayDateInputValue(),
     accountId: "",
+    transferAccountId: "",
     totalAmount: "",
     description: "",
     expenseKind: "operational",
@@ -194,6 +213,7 @@ export function NeonHomePage() {
   const [costCenterForm, setCostCenterForm] = useState<CostCenterFormState>({
     editingId: null,
     scope: "vehicle",
+    customTypeLabel: "",
     label: ""
   });
 
@@ -218,6 +238,7 @@ export function NeonHomePage() {
         ...current,
         accountId: current.accountId || defaultAccountId
       }));
+      setSelectedAccountId((current) => (current && nextAccounts.some((account) => account.id === current) ? current : nextAccounts[0]?.id || null));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo cargar Neon");
     } finally {
@@ -441,6 +462,7 @@ export function NeonHomePage() {
         destinationType: allocation.destinationType,
         destinationActivityId: allocation.destinationActivityId ? Number(allocation.destinationActivityId) : undefined,
         destinationLabel: allocation.destinationLabel.trim() || undefined,
+        customTypeLabel: allocation.customTypeLabel.trim() || undefined,
         amount: Number(allocation.amount),
         kilometers: allocation.kilometers ? Number(allocation.kilometers) : undefined,
         liters: allocation.liters ? Number(allocation.liters) : undefined
@@ -461,10 +483,16 @@ export function NeonHomePage() {
         (allocation.destinationType === "vehicle" ||
           allocation.destinationType === "personal" ||
           allocation.destinationType === "rental" ||
-          allocation.destinationType === "other") &&
+          allocation.destinationType === "other" ||
+          allocation.destinationType === "custom") &&
         !allocation.destinationLabel
       ) {
         toast.error("Campo faltante: Etiqueta en linea de asignacion. Completa a que corresponde esa linea.");
+        return;
+      }
+
+      if (allocation.destinationType === "custom" && !allocation.customTypeLabel) {
+        toast.error("Campo faltante: Tipo de centro de costo. Elegi el tipo personalizado correspondiente.");
         return;
       }
 
@@ -489,6 +517,18 @@ export function NeonHomePage() {
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
       toast.error("Campo invalido: Monto total. Ingresa un numero mayor a 0.");
       return;
+    }
+
+    if (journalForm.movementType === "transfer") {
+      if (!journalForm.transferAccountId) {
+        toast.error("Campo faltante: Cuenta destino. Elegi a que cuenta entra el dinero.");
+        return;
+      }
+
+      if (journalForm.transferAccountId === journalForm.accountId) {
+        toast.error("Campo inconsistente: Cuenta origen y destino. En un traspaso deben ser distintas.");
+        return;
+      }
     }
 
     if (journalForm.movementType === "expense") {
@@ -540,6 +580,7 @@ export function NeonHomePage() {
         movementType: journalForm.movementType,
         movementDate: journalForm.movementDate,
         accountId: Number(journalForm.accountId),
+        transferAccountId: journalForm.movementType === "transfer" ? Number(journalForm.transferAccountId) : undefined,
         totalAmount,
         description: journalForm.description.trim() || undefined,
         expenseKind: journalForm.movementType === "expense" ? journalForm.expenseKind : undefined,
@@ -562,7 +603,7 @@ export function NeonHomePage() {
           journalForm.expenseKind !== "credit_settlement"
             ? journalForm.dueDate || undefined
             : undefined,
-        allocations: normalizedAllocations.length > 0 ? normalizedAllocations : undefined
+        allocations: journalForm.movementType === "transfer" ? undefined : normalizedAllocations.length > 0 ? normalizedAllocations : undefined
       });
 
       setJournalEntries((current) => [createdEntry, ...current]);
@@ -571,6 +612,7 @@ export function NeonHomePage() {
         ...current,
         movementDate: getTodayDateInputValue(),
         totalAmount: "",
+        transferAccountId: "",
         description: "",
         expenseKind: "operational",
         providerName: "",
@@ -600,10 +642,17 @@ export function NeonHomePage() {
     }
 
     const normalizedLabel = toTitleCase(label);
+    const normalizedTypeLabel = costCenterForm.scope === "custom" ? toTitleCase(costCenterForm.customTypeLabel.trim()) : null;
+    if (costCenterForm.scope === "custom" && !normalizedTypeLabel) {
+      toast.error("Falta el tipo del centro de costo");
+      return;
+    }
+
     const exists = costCenters.some(
       (center) =>
         center.id !== costCenterForm.editingId &&
         center.scope === costCenterForm.scope &&
+        (center.typeLabel || "") === (normalizedTypeLabel || "") &&
         center.label.toLowerCase() === normalizedLabel.toLowerCase()
     );
 
@@ -616,6 +665,7 @@ export function NeonHomePage() {
       id: `${costCenterForm.scope}-${Date.now()}`,
       companyKey: "empresa_verde",
       scope: costCenterForm.scope,
+      typeLabel: normalizedTypeLabel,
       label: normalizedLabel,
       createdAt: new Date().toISOString()
     };
@@ -628,6 +678,7 @@ export function NeonHomePage() {
     setCostCenterForm({
       editingId: null,
       scope: "vehicle",
+      customTypeLabel: "",
       label: ""
     });
     toast.success("Centro de costo guardado", { autoClose: 2400 });
@@ -643,7 +694,10 @@ export function NeonHomePage() {
     const isUsedInJournal = journalEntries.some(
       (entry) =>
         entry.allocations.some(
-          (allocation) => allocation.destinationType === center.scope && allocation.destinationLabel?.trim() === center.label
+          (allocation) =>
+            allocation.destinationType === center.scope &&
+            allocation.destinationLabel?.trim() === center.label &&
+            (center.scope !== "custom" || allocation.metadata?.typeLabel === center.typeLabel)
         )
     );
 
@@ -655,6 +709,7 @@ export function NeonHomePage() {
     setCostCenterForm({
       editingId: center.id,
       scope: center.scope,
+      customTypeLabel: center.typeLabel || "",
       label: center.label
     });
     setPendingEditCostCenter({ id: center.id });
@@ -664,6 +719,7 @@ export function NeonHomePage() {
     setCostCenterForm({
       editingId: null,
       scope: "vehicle",
+      customTypeLabel: "",
       label: ""
     });
     setPendingEditCostCenter(null);
@@ -683,10 +739,17 @@ export function NeonHomePage() {
     }
 
     const normalizedLabel = toTitleCase(label);
+    const normalizedTypeLabel = costCenterForm.scope === "custom" ? toTitleCase(costCenterForm.customTypeLabel.trim()) : null;
+    if (costCenterForm.scope === "custom" && !normalizedTypeLabel) {
+      toast.error("Falta el tipo del centro de costo");
+      return;
+    }
+
     const exists = costCenters.some(
       (center) =>
         center.id !== costCenterForm.editingId &&
         center.scope === costCenterForm.scope &&
+        (center.typeLabel || "") === (normalizedTypeLabel || "") &&
         center.label.toLowerCase() === normalizedLabel.toLowerCase()
     );
 
@@ -703,6 +766,7 @@ export function NeonHomePage() {
                 ...center,
                 companyKey: center.companyKey,
                 scope: costCenterForm.scope,
+                typeLabel: normalizedTypeLabel,
                 label: normalizedLabel
               }
             : center
@@ -723,7 +787,10 @@ export function NeonHomePage() {
     const isUsedInJournal = journalEntries.some(
       (entry) =>
         entry.allocations.some(
-          (allocation) => allocation.destinationType === center.scope && allocation.destinationLabel?.trim() === center.label
+          (allocation) =>
+            allocation.destinationType === center.scope &&
+            allocation.destinationLabel?.trim() === center.label &&
+            (center.scope !== "custom" || allocation.metadata?.typeLabel === center.typeLabel)
         )
     );
 
@@ -753,6 +820,85 @@ export function NeonHomePage() {
 
   function handleCancelDeleteCostCenter() {
     setPendingDeleteCostCenter(null);
+  }
+
+  function handleRequestDeleteJournal(entryId: number, label: string) {
+    setPendingDeleteJournal({
+      id: entryId,
+      label
+    });
+  }
+
+  async function handleConfirmDeleteJournal() {
+    if (!pendingDeleteJournal) {
+      return;
+    }
+
+    setSavingJournal(true);
+    try {
+      await deleteNeonJournalEntry(pendingDeleteJournal.id);
+      await loadHomeData();
+      setPendingDeleteJournal(null);
+      toast.success("Movimiento borrado", { autoClose: 2400 });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo borrar el movimiento");
+    } finally {
+      setSavingJournal(false);
+    }
+  }
+
+  function handleCancelDeleteJournal() {
+    setPendingDeleteJournal(null);
+  }
+
+  function handleRequestResetWorkspace(mode: "demo" | "empty") {
+    setPendingResetWorkspace(
+      mode === "empty"
+        ? {
+            mode,
+            title: "Borrar datos de ejemplo",
+            message: "Seguro que deseas borrar los datos de ejemplo? Luego vas a poder restaurarlos si los necesitas.",
+            confirmLabel: "Si, borrar"
+          }
+        : {
+            mode,
+            title: "Restaurar demo",
+            message: "Seguro que deseas volver a mostrar los datos de ejemplo?",
+            confirmLabel: "Si, restaurar"
+          }
+    );
+  }
+
+  function handleCancelResetWorkspace() {
+    setPendingResetWorkspace(null);
+  }
+
+  async function handleConfirmResetWorkspace() {
+    if (!pendingResetWorkspace) {
+      return;
+    }
+
+    const { mode } = pendingResetWorkspace;
+    setLoading(true);
+    try {
+      await resetNeonWorkspace(mode);
+      setCostCenters(mode === "demo" ? DEFAULT_COST_CENTERS : []);
+      setCostCenterForm({
+        editingId: null,
+        scope: "vehicle",
+        customTypeLabel: "",
+        label: ""
+      });
+      setPendingDeleteCostCenter(null);
+      setPendingEditCostCenter(null);
+      setPendingDeleteJournal(null);
+      setPendingResetWorkspace(null);
+      await loadHomeData();
+      toast.success(mode === "demo" ? "Datos demo restaurados" : "Workspace limpio para cargar datos propios", { autoClose: 2400 });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar el workspace");
+      setLoading(false);
+    }
   }
 
   const dashboard = useMemo(() => {
@@ -796,8 +942,12 @@ export function NeonHomePage() {
         editingActivityId={editingActivityId}
         pendingEditCostCenter={pendingEditCostCenter}
         pendingDeleteCostCenter={pendingDeleteCostCenter}
+        pendingDeleteJournal={pendingDeleteJournal}
+        pendingResetWorkspace={pendingResetWorkspace}
         activeView={activeView}
         setActiveView={setActiveView}
+        selectedAccountId={selectedAccountId}
+        setSelectedAccountId={setSelectedAccountId}
         debtReportRange={debtReportRange}
         setDebtReportRange={setDebtReportRange}
         reportPeriodFilter={reportPeriodFilter}
@@ -817,6 +967,12 @@ export function NeonHomePage() {
         onDeleteCostCenter={handleRequestDeleteCostCenter}
         onConfirmDeleteCostCenter={handleConfirmDeleteCostCenter}
         onCancelDeleteCostCenter={handleCancelDeleteCostCenter}
+        onDeleteJournalEntry={handleRequestDeleteJournal}
+        onConfirmDeleteJournalEntry={handleConfirmDeleteJournal}
+        onCancelDeleteJournalEntry={handleCancelDeleteJournal}
+        onRequestResetWorkspace={handleRequestResetWorkspace}
+        onConfirmResetWorkspace={handleConfirmResetWorkspace}
+        onCancelResetWorkspace={handleCancelResetWorkspace}
       />
     </main>
   );

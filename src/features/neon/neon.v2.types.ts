@@ -22,18 +22,20 @@ export type ActivityFormState = {
 };
 
 export type JournalAllocationFormState = {
-  destinationType: "" | "activity" | "vehicle" | "personal" | "rental" | "other";
+  destinationType: "" | "activity" | "vehicle" | "personal" | "rental" | "other" | "custom";
   destinationActivityId: string;
   destinationLabel: string;
+  customTypeLabel: string;
   amount: string;
   kilometers: string;
   liters: string;
 };
 
 export type JournalFormState = {
-  movementType: "income" | "expense";
+  movementType: "income" | "expense" | "transfer";
   movementDate: string;
   accountId: string;
+  transferAccountId: string;
   totalAmount: string;
   description: string;
   expenseKind: "operational" | "credit_settlement";
@@ -57,7 +59,7 @@ export type ReportPeriodFilter = {
   dateTo: string;
 };
 
-export type ReportCenterScope = "all" | "activity" | "vehicle" | "personal" | "rental" | "other";
+export type ReportCenterScope = "all" | "activity" | "vehicle" | "personal" | "rental" | "other" | "custom";
 
 export type NeonCostCenterScope = Exclude<ReportCenterScope, "all" | "activity">;
 
@@ -68,6 +70,7 @@ export type NeonCompanyKey = "empresa_verde" | "empresa_negra" | "empresa_c";
 export type CostCenterFormState = {
   editingId: string | null;
   scope: NeonCostCenterScope;
+  customTypeLabel: string;
   label: string;
 };
 
@@ -75,6 +78,7 @@ export type NeonCostCenterRecord = {
   id: string;
   companyKey: NeonCompanyKey;
   scope: NeonCostCenterScope;
+  typeLabel: string | null;
   label: string;
   createdAt: string;
 };
@@ -86,4 +90,16 @@ export type PendingDeleteCostCenterState = {
 
 export type PendingEditCostCenterState = {
   id: string;
+} | null;
+
+export type PendingDeleteJournalState = {
+  id: number;
+  label: string;
+} | null;
+
+export type PendingResetWorkspaceState = {
+  mode: "demo" | "empty";
+  title: string;
+  message: string;
+  confirmLabel: string;
 } | null;

@@ -1,6 +1,6 @@
 # Neon Docs
 
-Fecha de actualizacion: 2026-05-10
+Fecha de actualizacion: 2026-05-14
 
 Esta carpeta guarda la documentacion funcional y operativa de `frontend-neon`.
 
@@ -19,6 +19,13 @@ Hoy la home del piloto se organiza en cuatro vistas:
 - `Resumen`
 - `Actividades`
 - `Reportes`
+
+Ademas el corte actual ya incluye:
+
+- `traspaso` entre cuentas
+- lectura puntual por cuenta en `Reportes`
+- tipos personalizados en centros de costo
+- control para ocultar o restaurar la demo local
 
 La idea central del corte actual es esta:
 
@@ -121,6 +128,7 @@ Hoy incluye:
 - libro diario filtrado
 - actividades pendientes
 - resultados por actividad
+- exploracion por cuenta con movimientos asociados
 
 Y ya distingue mejor segun el caso:
 
@@ -139,6 +147,7 @@ Hoy ya esta implementado y validado:
   - `cash`
   - `bank`
   - `credit`
+- `traspaso` entre cuentas sin contaminar ingresos / gastos
 - libro diario V3 para piloto
 - division por multiples lineas
 - asignacion a:
@@ -147,6 +156,7 @@ Hoy ya esta implementado y validado:
   - personal
   - alquiler
   - otros
+  - tipo personalizado
 - kilometraje y litros en lineas de vehiculo
 - deuda pendiente por credito
 - neteo de deuda con pagos de tarjeta
@@ -157,6 +167,8 @@ Hoy ya esta implementado y validado:
 - monto del trabajo como unico importe editable en UI
 - filtros por periodo en reportes
 - rango personalizado en reportes
+- exploracion por cuenta con borrado de movimientos desde reportes
+- control para ocultar demo y restaurarla
 
 ## Presets de prueba vigentes
 

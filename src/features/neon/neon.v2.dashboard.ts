@@ -89,7 +89,7 @@ export type ReportMovementStoryItem = {
   movementId: number;
   movementDate: string;
   createdAt: string;
-  movementType: "income" | "expense";
+  movementType: "income" | "expense" | "transfer";
   accountName: string;
   centerScope: ReportCenterScope;
   centerLabel: string;
@@ -256,6 +256,12 @@ function getAllocationLabel(allocation: NeonJournalAllocation) {
     return allocation.destinationActivityCode || allocation.destinationActivityDescription || "Actividad";
   }
 
+  if (allocation.destinationType === "custom") {
+    const typeLabel = typeof allocation.metadata?.typeLabel === "string" ? allocation.metadata.typeLabel.trim() : "";
+    const destinationLabel = allocation.destinationLabel || "Centro personalizado";
+    return typeLabel ? `${typeLabel} · ${destinationLabel}` : destinationLabel;
+  }
+
   return allocation.destinationLabel || allocation.destinationType;
 }
 
@@ -374,12 +380,14 @@ function buildRecentCardSettlements(journalEntries: NeonJournalEntry[], limit: n
 function buildAccountReports(accounts: NeonAccount[], journalEntries: NeonJournalEntry[]) {
   return accounts
     .map((account) => {
-      const relatedEntries = journalEntries.filter((entry) => entry.accountId === account.id);
+      const relatedEntries = journalEntries.filter(
+        (entry) => entry.accountId === account.id || entry.transferAccountId === account.id
+      );
       const incomeAmount = relatedEntries
-        .filter((entry) => entry.movementType === "income")
+        .filter((entry) => entry.movementType === "income" && entry.accountId === account.id)
         .reduce((sum, entry) => sum + entry.totalAmount, 0);
       const expenseAmount = relatedEntries
-        .filter((entry) => entry.movementType === "expense")
+        .filter((entry) => entry.movementType === "expense" && entry.accountId === account.id)
         .reduce((sum, entry) => sum + entry.totalAmount, 0);
 
       return {
@@ -530,6 +538,7 @@ function matchesEntrySearch(entry: NeonJournalEntry, searchTerm: string) {
 
   const haystack = [
     entry.accountName,
+    entry.transferAccountName,
     entry.description,
     entry.providerName,
     entry.documentRef,
@@ -551,7 +560,7 @@ function getReportEntriesByFilters(
 ) {
   const today = getTodayDateInputValue();
   return filterEntriesByReportPeriod(journalEntries, reportPeriodFilter, today).filter((entry) => {
-    if (accountId && entry.accountId !== accountId) {
+    if (accountId && entry.accountId !== accountId && entry.transferAccountId !== accountId) {
       return false;
     }
 

@@ -40,7 +40,7 @@ export type NeonAccount = {
 
 export type NeonJournalAllocation = {
   id: number;
-  destinationType: "activity" | "vehicle" | "personal" | "rental" | "other";
+  destinationType: "activity" | "vehicle" | "personal" | "rental" | "other" | "custom";
   destinationActivityId: number | null;
   destinationActivityCode: string | null;
   destinationActivityDescription: string | null;
@@ -50,9 +50,10 @@ export type NeonJournalAllocation = {
 };
 
 export type NeonJournalAllocationInput = {
-  destinationType: "activity" | "vehicle" | "personal" | "rental" | "other";
+  destinationType: "activity" | "vehicle" | "personal" | "rental" | "other" | "custom";
   destinationActivityId?: number;
   destinationLabel?: string;
+  customTypeLabel?: string;
   amount: number;
   kilometers?: number;
   liters?: number;
@@ -62,10 +63,12 @@ export type NeonJournalEntry = {
   id: number;
   tenantId: number;
   companyKey: "empresa_verde" | "empresa_negra" | "empresa_c";
-  movementType: "income" | "expense";
+  movementType: "income" | "expense" | "transfer";
   movementDate: string;
   accountId: number;
   accountName: string;
+  transferAccountId?: number | null;
+  transferAccountName?: string | null;
   totalAmount: number;
   description: string | null;
   providerName: string | null;
@@ -143,7 +146,7 @@ export type NeonExpense = {
   categoryClassification: "empresa" | "personal";
   totalAmount: number;
   description: string | null;
-  destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
+  destinationType: "activity" | "personal" | "vehicle" | "rental" | "other" | "custom";
   destinationActivityId: number | null;
   destinationActivityCode: string | null;
   destinationActivityDescription: string | null;

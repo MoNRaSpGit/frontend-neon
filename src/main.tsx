@@ -13,7 +13,20 @@ const Router = import.meta.env.MODE === "github-pages" ? HashRouter : BrowserRou
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
+    if (import.meta.env.PROD) {
+      void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`);
+      return;
+    }
+
+    // In dev, stale service workers break Vite HMR and can keep old update prompts on screen.
+    void navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .then(() => caches.keys())
+      .then((cacheKeys) => Promise.all(cacheKeys.map((cacheKey) => caches.delete(cacheKey))))
+      .catch(() => {
+        // Ignore cleanup failures in development; the page can still boot normally.
+      });
   });
 }
 

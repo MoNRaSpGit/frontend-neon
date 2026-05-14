@@ -1,14 +1,16 @@
 /* global self, caches, fetch, URL */
 
-const CACHE_NAME = "neon-pwa-v1";
+const CACHE_NAME = "neon-pwa-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
-  "./icons/icon-512.png",
-  "./app-build.json"
+  "./icons/icon-512.png"
 ];
+
+const NEVER_CACHE_PATHS = ["/app-build.json", "/sw.js"];
+const CACHEABLE_DESTINATIONS = new Set(["style", "script", "image", "font"]);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -34,6 +36,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (NEVER_CACHE_PATHS.some((path) => requestUrl.pathname.endsWith(path))) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
@@ -44,6 +51,11 @@ self.addEventListener("fetch", (event) => {
         })
         .catch(() => caches.match("./index.html"))
     );
+    return;
+  }
+
+  if (!CACHEABLE_DESTINATIONS.has(event.request.destination)) {
+    event.respondWith(fetch(event.request));
     return;
   }
 

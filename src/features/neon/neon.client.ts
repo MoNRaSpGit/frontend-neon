@@ -26,9 +26,10 @@ type MutableAccount = Omit<NeonAccount, "currentBalance">;
 type MutableActivity = Omit<NeonActivity, "collectedAmount" | "pendingAmount" | "payments">;
 type JournalCreationInput = {
   companyKey?: "empresa_verde" | "empresa_negra" | "empresa_c";
-  movementType: "income" | "expense";
+  movementType: "income" | "expense" | "transfer";
   movementDate: string;
   accountId: number;
+  transferAccountId?: number;
   totalAmount: number;
   description?: string;
   expenseKind?: "operational" | "credit_settlement";
@@ -39,17 +40,19 @@ type JournalCreationInput = {
   currencyCode?: "UYU" | "USD";
   creditCardLabel?: string;
   dueDate?: string;
-  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
+  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other" | "custom";
   destinationActivityId?: number;
   destinationLabel?: string;
+  customTypeLabel?: string;
   kilometers?: number;
   liters?: number;
   allocations?: NeonJournalAllocationInput[];
 };
 type ExpenseCreationInput = {
-  destinationType: "activity" | "personal" | "vehicle" | "rental" | "other";
+  destinationType: "activity" | "personal" | "vehicle" | "rental" | "other" | "custom";
   destinationActivityId?: number;
   destinationLabel?: string;
+  customTypeLabel?: string;
   totalAmount: number;
 };
 
@@ -946,7 +949,9 @@ function normalizeJournalEntry(entry: NeonJournalEntry): NeonJournalEntry {
 
   return {
     ...entry,
-    companyKey: inferredCompanyKey
+    companyKey: inferredCompanyKey,
+    transferAccountId: entry.transferAccountId || null,
+    transferAccountName: entry.transferAccountName || null
   };
 }
 
@@ -1052,7 +1057,7 @@ function getActivityCompanyKey(activityId: number) {
 function buildAllocations(
   input: Pick<
     JournalCreationInput,
-    "allocations" | "costCenterType" | "destinationActivityId" | "destinationLabel" | "liters" | "kilometers"
+    "allocations" | "costCenterType" | "destinationActivityId" | "destinationLabel" | "customTypeLabel" | "liters" | "kilometers"
   > | ExpenseCreationInput,
   totalAmount: number
 ) {
@@ -1073,6 +1078,7 @@ function buildAllocations(
                 destinationType: input.costCenterType,
                 destinationActivityId: input.destinationActivityId,
                 destinationLabel: input.destinationLabel,
+                customTypeLabel: input.customTypeLabel,
                 amount: totalAmount,
                 kilometers: input.kilometers,
                 liters: input.liters
@@ -1086,6 +1092,7 @@ function buildAllocations(
         destinationType: expenseInput.destinationType,
         destinationActivityId: expenseInput.destinationActivityId,
         destinationLabel: expenseInput.destinationLabel,
+        customTypeLabel: expenseInput.customTypeLabel,
         amount: expenseInput.totalAmount,
         kilometers: undefined,
         liters: undefined
@@ -1118,6 +1125,10 @@ function buildAllocations(
               kilometers: allocation.kilometers ?? null,
               liters: allocation.liters ?? null
             }
+          : allocation.destinationType === "custom"
+            ? {
+                typeLabel: allocation.customTypeLabel?.trim() || null
+              }
           : null
     };
   });
@@ -1125,9 +1136,27 @@ function buildAllocations(
 
 function deriveAccounts(): NeonAccount[] {
   return accountsStore.map((account) => {
-    const relatedEntries = journalStore.filter((entry) => entry.accountId === account.id);
+    const relatedEntries = journalStore.filter(
+      (entry) => entry.accountId === account.id || entry.transferAccountId === account.id
+    );
     const currentBalance = relatedEntries.reduce((sum, entry) => {
-      return sum + (entry.movementType === "income" ? entry.totalAmount : -entry.totalAmount);
+      if (entry.movementType === "income") {
+        return entry.accountId === account.id ? sum + entry.totalAmount : sum;
+      }
+
+      if (entry.movementType === "expense") {
+        return entry.accountId === account.id ? sum - entry.totalAmount : sum;
+      }
+
+      if (entry.accountId === account.id) {
+        return sum - entry.totalAmount;
+      }
+
+      if (entry.transferAccountId === account.id) {
+        return sum + entry.totalAmount;
+      }
+
+      return sum;
     }, account.openingBalance);
 
     return {
@@ -1194,9 +1223,9 @@ function filterJournalEntries(
   entries: NeonJournalEntry[],
   params?: {
     limit?: number;
-    movementType?: "income" | "expense";
+    movementType?: "income" | "expense" | "transfer";
     accountId?: number;
-    costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
+    costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other" | "custom";
     dateFrom?: string;
     dateTo?: string;
     search?: string;
@@ -1209,7 +1238,9 @@ function filterJournalEntries(
   }
 
   if (params?.accountId) {
-    nextEntries = nextEntries.filter((entry) => entry.accountId === params.accountId);
+    nextEntries = nextEntries.filter(
+      (entry) => entry.accountId === params.accountId || entry.transferAccountId === params.accountId
+    );
   }
 
   if (params?.costCenterType) {
@@ -1235,6 +1266,7 @@ function filterJournalEntries(
         entry.documentRef,
         entry.creditCardLabel,
         entry.accountName,
+        entry.transferAccountName,
         ...entry.allocations.map((allocation) => allocation.destinationLabel || allocation.destinationActivityDescription || allocation.destinationActivityCode)
       ]
         .filter(Boolean)
@@ -1365,9 +1397,9 @@ export async function listNeonExpenses(): Promise<NeonExpense[]> {
 
 export async function listNeonJournal(params?: {
   limit?: number;
-  movementType?: "income" | "expense";
+  movementType?: "income" | "expense" | "transfer";
   accountId?: number;
-  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other";
+  costCenterType?: "activity" | "vehicle" | "personal" | "rental" | "other" | "custom";
   dateFrom?: string;
   dateTo?: string;
   search?: string;
@@ -1377,7 +1409,7 @@ export async function listNeonJournal(params?: {
 
 export async function createNeonJournalEntry(input: JournalCreationInput) {
   const timestamp = nowIso();
-  const allocations = buildAllocations(input, input.totalAmount);
+  const allocations = input.movementType === "transfer" ? [] : buildAllocations(input, input.totalAmount);
   const sourceActivityAllocation =
     allocations.length === 1 && allocations[0].destinationType === "activity" ? allocations[0] : null;
   const relatedActivityCompanyKey =
@@ -1399,6 +1431,9 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
     movementDate: input.movementDate,
     accountId: input.accountId,
     accountName: getAccountName(input.accountId),
+    transferAccountId: input.movementType === "transfer" ? input.transferAccountId || null : null,
+    transferAccountName:
+      input.movementType === "transfer" && input.transferAccountId ? getAccountName(input.transferAccountId) : null,
     totalAmount: Number(input.totalAmount.toFixed(2)),
     description: input.description?.trim() || null,
     providerName: input.providerName?.trim() || null,
@@ -1421,6 +1456,34 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
   journalStore.unshift(entry);
   persistStores();
   return clone(entry);
+}
+
+export async function deleteNeonJournalEntry(entryId: number) {
+  const entryIndex = journalStore.findIndex((entry) => entry.id === entryId);
+  if (entryIndex < 0) {
+    throw new Error("No se pudo borrar el movimiento");
+  }
+
+  journalStore.splice(entryIndex, 1);
+  persistStores();
+}
+
+export async function resetNeonWorkspace(mode: "demo" | "empty") {
+  if (mode === "demo") {
+    clientsStore = clone(seedClients);
+    accountsStore = clone(seedAccounts);
+    categoriesStore = clone(seedCategories);
+    activitiesStore = clone(seedActivities).map(normalizeActivity);
+    journalStore = clone(seedJournalEntries).map(normalizeJournalEntry);
+  } else {
+    clientsStore = [];
+    accountsStore = [];
+    categoriesStore = clone(seedCategories);
+    activitiesStore = [];
+    journalStore = [];
+  }
+
+  persistStores();
 }
 
 export async function createNeonActivity(input: {
