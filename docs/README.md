@@ -1,267 +1,86 @@
 # Neon Docs
 
-Fecha de actualizacion: 2026-05-14
+Fecha de actualizacion: 2026-05-16
 
-Esta carpeta guarda la documentacion funcional y operativa de `frontend-neon`.
+## Objetivo
 
-## Regla documental
+Esta carpeta documenta el producto `neon` del lado frontend.
 
-- la arquitectura general del SaaS vive en `backend/docs`
-- el comportamiento real del frontend `neon` se documenta aca
+Su funcion es dejar claro:
 
-## Estado actual del frontend
+- que problema resuelve el modulo
+- como se interpreta hoy el piloto
+- cual es el estado visible actual de la UI
+- como esta pensado tecnicamente el frontend
+- que cambios finos se fueron haciendo en el modulo
 
-`frontend-neon` ya no se interpreta como un flujo viejo por tarjetas.
+## Alcance
 
-Hoy la home del piloto se organiza en cuatro vistas:
+`frontend-neon/docs` documenta:
 
-- `Diario`
-- `Resumen`
-- `Actividades`
-- `Reportes`
+- comportamiento real del frontend `neon`
+- lenguaje del producto en piloto
+- estructura funcional visible
+- decisiones finas de UX del modulo
+- estado actual del demo local
+- bitacora operativa del frontend
 
-Ademas el corte actual ya incluye:
+No documenta:
 
-- `traspaso` entre cuentas
-- lectura puntual por cuenta en `Reportes`
-- tipos personalizados en centros de costo
-- control para ocultar o restaurar la demo local
+- arquitectura general del SaaS
+- reglas globales de auth, tenant, billing o core
+- decisiones estructurales del backend compartido
 
-La idea central del corte actual es esta:
+Eso vive en `backend/docs`.
 
-- primero existe el movimiento
-- despues se elige de donde sale o entra el dinero
-- si es credito se completan tarjeta y vencimiento
-- despues se reparte ese movimiento entre centros de costo
+## Orden recomendado de lectura
 
-## Lo que hoy existe en la UI
+1. [Estado actual del frontend](./product/current-state.md)
+2. [Contexto funcional del producto](./product/product-context.md)
+3. [Diseno tecnico del piloto](./product/technical-design.md)
+4. [Bitacora del modulo](./operations/bitacora.md)
+5. [Archivo historico](./archive/pre-entrega-prueba-1.md)
 
-### Resumen
+## Estructura de esta carpeta
 
-Vista simple para abrir el modulo sin perder foco.
+### `product/`
 
-Hoy muestra:
+Define el producto y su corte actual:
 
-- saldo total
-- movimiento acumulado
-- pendiente de facturar
-- pendiente de cobrar
-- deuda pendiente
-- control comercial por empresa facturada:
-  - `Empresa A`
-  - `Empresa B`
-  - `Empresa C`
+- estado visible del frontend
+- contexto funcional
+- diseno tecnico del piloto
 
-### Diario
+### `operations/`
 
-Es la parte mas importante del piloto.
+Guarda el seguimiento fino del modulo:
 
-Permite registrar:
+- que se cambio
+- que se valido
+- donde quedamos
 
-- ingreso o gasto
-- fecha
-- cuenta
-- importe total
-- detalle
-- multiples lineas de asignacion
+### `archive/`
 
-Y para salidas tambien:
+Guarda referencias historicas de pruebas anteriores que ya no son la foto principal.
 
-- detalle
-- proveedor
-- moneda
-- kilometraje y litros cuando aplica
+## Regla de lectura
 
-Si la cuenta es `credit`, tambien permite:
+Si hay contradiccion entre una nota vieja y esta carpeta:
 
-- tarjeta
-- vencimiento
+- manda esta carpeta
 
-Ademas soporta `pago de tarjeta` como tipo operativo para bajar deuda.
+Si hay contradiccion entre una regla global del SaaS y este modulo:
 
-### Actividades
+- manda `backend/docs`
 
-Se mantienen como entidad comercial numerada.
+## Regla importante de este corte
 
-Permite:
+Hoy `neon` sigue en estado de piloto.
 
-- crear cliente
-- crear actividad
-- ver seguimiento comercial
-- ver pendientes
-- ver todas las actividades
+La persistencia principal validada para demo sigue siendo local al frontend.
 
-El lenguaje vigente es:
+La bajada formal a backend quedara para el momento en que el cliente confirme:
 
-- `pendiente de facturar`
-- `facturado`
-- `pendiente de cobrar`
-
-Regla vigente del piloto:
-
-- la empresa se asigna al facturar la actividad
-- `Empresa A / B / C` no separan la operacion diaria completa
-- sirven como control comercial de lo facturado
-- el cobro real baja desde el libro diario cuando entra dinero asignado a esa actividad
-
-Ademas hoy permite:
-
-- editar actividad desde modal
-- cambiar el monto del trabajo en la misma edicion
-- pasar de `pendiente de facturar` a `facturado`
-- ver cuanto queda pendiente de cobrar segun ingresos reales
-
-### Reportes
-
-Se reordeno para validar la idea pedida por cliente:
-
-- elegir fechas
-- elegir centro
-- ver una historia concreta
-
-Hoy incluye:
-
-- saldos por cuenta
-- deuda pendiente y tarjetas
-- gastos e ingresos por centro de costo
-- movimientos del centro
-- libro diario filtrado
-- actividades pendientes
-- resultados por actividad
-- exploracion por cuenta con movimientos asociados
-
-Y ya distingue mejor segun el caso:
-
-- vehiculo
-- actividad
-- alquiler
-- personal
-- otros
-
-## Base funcional implementada
-
-Hoy ya esta implementado y validado:
-
-- cuentas base y cuentas nuevas
-- soporte de cuentas:
-  - `cash`
-  - `bank`
-  - `credit`
-- `traspaso` entre cuentas sin contaminar ingresos / gastos
-- libro diario V3 para piloto
-- division por multiples lineas
-- asignacion a:
-  - actividad
-  - vehiculo
-  - personal
-  - alquiler
-  - otros
-  - tipo personalizado
-- kilometraje y litros en lineas de vehiculo
-- deuda pendiente por credito
-- neteo de deuda con pagos de tarjeta
-- actividades integradas al nuevo modelo
-- cobrado y pendiente calculados desde ingresos del journal
-- empresa comercial ligada a la factura de actividad
-- modal de edicion para actividades
-- monto del trabajo como unico importe editable en UI
-- filtros por periodo en reportes
-- rango personalizado en reportes
-- exploracion por cuenta con borrado de movimientos desde reportes
-- control para ocultar demo y restaurarla
-
-## Presets de prueba vigentes
-
-Para que el cliente se vea reflejado rapido, la UI ya sugiere:
-
-### Cuentas
-
-- `Caja $`
-- `BROU $`
-- `BBVA $`
-- `ITAU U$S`
-- `Credito`
-
-### Tarjetas
-
-- `Visa Itau`
-- `Master BBVA`
-- `Porto Seguro`
-
-### Centros de costo base
-
-- vehiculos:
-  - `Toyota RAA1111`
-  - `Micro SAH2222`
-  - `Movil RAE2323`
-- personal / casa:
-  - `Casa`
-  - `Uso personal`
-- alquileres:
-  - `ALQ1`
-  - `ALQ2`
-- otros:
-  - `Generador`
-  - `Herramientas`
-  - `OTROS1`
-
-## Dataset demo cargado
-
-El tenant demo quedo con una base corta para mostrar el sistema sin ruido.
-
-Hoy incluye:
-
-- `2` gastos
-- `2` ingresos
-- `3` actividades
-- casos visibles de:
-  - vehiculo
-  - personal
-  - alquiler
-  - actividades
-
-Script de reseteo:
-
-- `backend/scripts/reset-neon-demo-pilot-data.js`
-
-## Lo que todavia no se cierra a proposito
-
-Este corte se mantiene en estado de piloto.
-
-Todavia no se endurece:
-
-- catalogo oficial definitivo de cuentas
-- catalogo oficial definitivo de tarjetas
-- gestion fuerte de alquileres como entidad propia
-- edicion y borrado logico visibles
-- limpieza final de piezas heredadas
-- cierre fino del lenguaje entre `cotizado`, `facturado` y `cobrado`
-
-## Donde quedamos hoy
-
-El producto ya tiene una base util para prueba real con cliente:
-
-- puede cargar ingresos y gastos
-- puede dividirlos entre varios destinos
-- puede registrar credito y vencimientos
-- puede separar alquileres de actividades
-- puede mirar cuentas, deuda y reportes por centro
-- puede seguir pendientes de facturar y pendientes de cobrar por empresa comercial
-- abre directamente en `Diario`, que hoy es la entrada principal pedida por cliente
-
-## Siguiente paso recomendado
-
-No meter mas codigo fuerte hasta recibir devolucion.
-
-El camino sugerido es:
-
-1. que el cliente pruebe el flujo diario
-2. escuchar ajustes de lenguaje, centros y reportes
-3. confirmar si la direccion es correcta
-4. recien despues endurecer modelo y UX final
-
-## Siguiente lectura
-
-- [Contexto funcional del producto](./product-context.md)
-- [Diseno tecnico MVP / V3](./mvp-technical-design.md)
-- [Bitacora del modulo](./bitacora.md)
+- que el flujo del producto ya cerro
+- que el lenguaje actual es el correcto
+- que el modelo ya esta listo para endurecerse

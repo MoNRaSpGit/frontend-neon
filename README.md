@@ -1,15 +1,29 @@
 # frontend-neon
 
-Frontend del modulo `neon` dentro de `SaasPro`.
+Frontend del producto `neon` dentro de `SaasPro`.
 
 ## Estado actual
 
-- shell publicado
+- piloto funcional en validacion con cliente
 - auth SaaS conectado
 - routing protegido
-- backend y base conectados
+- persistencia demo/local para el flujo principal del piloto
+
+## Regla importante de este corte
+
+Hoy `neon` sigue funcionando como piloto de producto.
+
+Eso significa:
+
+- la experiencia visible se valida desde frontend
+- el flujo principal de demo persiste localmente en navegador
+- la bajada formal a backend todavia no es la prioridad del modulo
+
+Cuando el piloto quede cerrado:
+
+- se baja el flujo validado a persistencia formal en backend
 
 ## Documentacion
 
-- documentacion estructural del SaaS: `backend/docs`
+- arquitectura general del SaaS: `backend/docs`
 - documentacion propia del modulo: `frontend-neon/docs`
