@@ -33,6 +33,7 @@ export type NeonAccount = {
   name: string;
   accountType: "cash" | "bank" | "credit";
   openingBalance: number;
+  dueDate: string | null;
   currentBalance: number;
   createdAt: string;
   updatedAt: string;

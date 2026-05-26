@@ -7,6 +7,7 @@ import {
   formatDirectionalMoney,
   formatMoney,
   formatSignedMoney,
+  getDaysUntilDate,
   formatShortDate,
   getMonthEndDateInputValue,
   getTodayDateInputValue
@@ -73,6 +74,8 @@ import {
   NeonCostCenterRecord,
   NeonCompanyKey,
   NeonCostCenterScope,
+  PendingDeleteAccountState,
+  PendingEditAccountState,
   PendingEditCostCenterState,
   PendingDeleteCostCenterState,
   PendingResetWorkspaceState,
@@ -106,6 +109,8 @@ type HomeSectionsProps = {
   activeCompany: NeonCompanyKey;
   setActiveCompany: Dispatch<SetStateAction<NeonCompanyKey>>;
   editingActivityId: number | null;
+  pendingEditAccount: PendingEditAccountState;
+  pendingDeleteAccount: PendingDeleteAccountState;
   pendingEditCostCenter: PendingEditCostCenterState;
   pendingDeleteCostCenter: PendingDeleteCostCenterState;
   pendingDeleteJournal: { id: number; label: string } | null;
@@ -122,6 +127,11 @@ type HomeSectionsProps = {
   dashboard: DashboardSummary;
   onCreateClient: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateAccount: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onEditAccount: (accountId: number) => void;
+  onCancelAccountEdit: () => void;
+  onDeleteAccount: (accountId: number) => void;
+  onConfirmDeleteAccount: () => Promise<void>;
+  onCancelDeleteAccount: () => void;
   onCreateActivity: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartActivityEdit: (activityId: number) => void;
   onCancelActivityEdit: () => void;
@@ -192,6 +202,34 @@ function getInvoiceSummary(activity: Pick<NeonActivity, "invoiceDate" | "invoice
   )}`;
 }
 
+function getDueDateStatusLabel(dueDate: string | null) {
+  if (!dueDate) {
+    return "Sin vencimiento";
+  }
+
+  const daysUntilDue = getDaysUntilDate(dueDate);
+  if (daysUntilDue < 0) {
+    const overdueDays = Math.abs(daysUntilDue);
+    return overdueDays === 1 ? "Vencido hace 1 dia" : `Vencido hace ${overdueDays} dias`;
+  }
+
+  if (daysUntilDue === 0) {
+    return "Vence hoy";
+  }
+
+  if (daysUntilDue === 1) {
+    return "Vence en 1 dia";
+  }
+
+  return `Vence en ${daysUntilDue} dias`;
+}
+
+function getDueDateBadgeStyle() {
+  return {
+    color: "#C86F31"
+  };
+}
+
 const WORKSPACE_VIEWS: Array<{ value: NeonWorkspaceView; label: string; description: string }> = [
   { value: "journal", label: "Diario", description: "Cuentas y carga de movimientos" },
   { value: "overview", label: "Resumen", description: "Metricas, deuda y panorama general" },
@@ -212,7 +250,6 @@ const SUGGESTED_ACCOUNT_PRESETS: Array<{ name: string; accountType: AccountFormS
   { name: "ITAU U$S", accountType: "bank" },
   { name: "Credito", accountType: "credit" }
 ];
-const CREDIT_CARD_PRESETS = ["Visa Itau", "Master BBVA", "Porto Seguro"];
 const EXPANDABLE_LIST_STEP = 3;
 const ACTIVITY_STATUS_OPTIONS: Array<{
   value: ActivityFormState["commercialStatus"];
@@ -323,6 +360,8 @@ export function NeonV2HomeSections({
   activeCompany,
   setActiveCompany,
   editingActivityId,
+  pendingEditAccount,
+  pendingDeleteAccount,
   pendingEditCostCenter,
   pendingDeleteCostCenter,
   pendingDeleteJournal,
@@ -339,6 +378,11 @@ export function NeonV2HomeSections({
   dashboard,
   onCreateClient,
   onCreateAccount,
+  onEditAccount,
+  onCancelAccountEdit,
+  onDeleteAccount,
+  onConfirmDeleteAccount,
+  onCancelDeleteAccount,
   onCreateActivity,
   onStartActivityEdit,
   onCancelActivityEdit,
@@ -392,9 +436,6 @@ export function NeonV2HomeSections({
   const displayedJournalTotalAmount = selectedSingleIncomeActivity
     ? String(selectedSingleIncomeActivity.pendingAmount)
     : journalForm.totalAmount;
-  const selectedJournalAccount = accounts.find((account) => String(account.id) === journalForm.accountId);
-  const journalUsesCredit = selectedJournalAccount?.accountType === "credit";
-  const isCreditSettlement = journalForm.expenseKind === "credit_settlement";
   const filteredReportEntries = useMemo(
     () => (isReportsView ? journalEntries.filter((entry) => matchesReportPeriod(entry, reportPeriodFilter)) : []),
     [isReportsView, journalEntries, reportPeriodFilter]
@@ -814,10 +855,10 @@ export function NeonV2HomeSections({
           </div>
         </article>
       </section> : null}
-      {pendingDeleteCostCenter ? (
-        <div style={modalOverlayStyle}>
-          <div style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>Confirmar borrado</h3>
+        {pendingDeleteCostCenter ? (
+          <div style={modalOverlayStyle}>
+            <div style={modalCardStyle}>
+              <h3 style={modalTitleStyle}>Confirmar borrado</h3>
             <p style={modalBodyStyle}>
               Vas a borrar el centro de costo <strong>{pendingDeleteCostCenter.label}</strong>. Esta accion no se puede deshacer.
             </p>
@@ -836,12 +877,37 @@ export function NeonV2HomeSections({
                 Si, borrar
               </button>
             </div>
+            </div>
           </div>
-        </div>
-      ) : null}
-      {pendingDeleteJournal ? (
-        <div style={modalOverlayStyle}>
-          <div style={modalCardStyle}>
+        ) : null}
+        {pendingDeleteAccount ? (
+          <div style={modalOverlayStyle}>
+            <div style={modalCardStyle}>
+              <h3 style={modalTitleStyle}>Confirmar borrado</h3>
+              <p style={modalBodyStyle}>
+                Vas a borrar la cuenta <strong>{pendingDeleteAccount.label}</strong>. Esta accion no se puede deshacer.
+              </p>
+              <div style={modalActionsStyle}>
+                <button type="button" onClick={onCancelDeleteAccount} style={secondaryButtonStyle}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onConfirmDeleteAccount()}
+                  style={{
+                    ...primaryButtonStyle,
+                    background: COLORS.expenseAccent
+                  }}
+                >
+                  Si, borrar
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {pendingDeleteJournal ? (
+          <div style={modalOverlayStyle}>
+            <div style={modalCardStyle}>
             <h3 style={modalTitleStyle}>Confirmar borrado</h3>
             <p style={modalBodyStyle}>
               Vas a borrar el movimiento <strong>{pendingDeleteJournal.label}</strong>. Esta accion no se puede deshacer.
@@ -1093,37 +1159,54 @@ export function NeonV2HomeSections({
             </label>
             <label style={fieldStyle}>
               <span>1. Tipo</span>
-              <select
-                value={accountForm.accountType}
-                onChange={(event) =>
-                  setAccountForm((current) => ({
-                    ...current,
-                    accountType: event.target.value as AccountFormState["accountType"]
-                  }))
-                }
-                style={inputStyle}
-              >
+                <select
+                  value={accountForm.accountType}
+                  onChange={(event) =>
+                    setAccountForm((current) => ({
+                      ...current,
+                      accountType: event.target.value as AccountFormState["accountType"],
+                      dueDate: event.target.value === "credit" ? current.dueDate : ""
+                    }))
+                  }
+                  style={inputStyle}
+                >
                 <option value="cash">Caja</option>
                 <option value="bank">Banco</option>
                 <option value="credit">Credito</option>
               </select>
             </label>
-            <label style={fieldStyle}>
-              <span>Saldo inicial</span>
-              <input
+              <label style={fieldStyle}>
+                <span>Saldo inicial</span>
+                <input
                 type="number"
                 min="0"
                 step="0.01"
                 value={accountForm.openingBalance}
                 onChange={(event) => setAccountForm((current) => ({ ...current, openingBalance: event.target.value }))}
                 style={inputStyle}
-                placeholder="0"
-              />
-            </label>
-            <button type="submit" disabled={savingAccount} style={primaryButtonStyle}>
-              {savingAccount ? "Guardando..." : "Crear cuenta"}
-            </button>
-          </form>
+                  placeholder="0"
+                />
+              </label>
+              {accountForm.accountType === "credit" ? (
+                <label style={fieldStyle}>
+                  <span>Fecha limite de pago</span>
+                  <input
+                    type="date"
+                    value={accountForm.dueDate}
+                    onChange={(event) => setAccountForm((current) => ({ ...current, dueDate: event.target.value }))}
+                    style={inputStyle}
+                  />
+                </label>
+              ) : null}
+                <button type="submit" disabled={savingAccount} style={primaryButtonStyle}>
+                 {savingAccount ? "Guardando..." : pendingEditAccount ? "Guardar cambios" : "Crear cuenta"}
+                </button>
+                {pendingEditAccount ? (
+                  <button type="button" onClick={onCancelAccountEdit} style={secondaryButtonStyle}>
+                    Cancelar edicion
+                  </button>
+                ) : null}
+              </form>
 
           <div style={{ ...subPanelStyle, gap: 10 }}>
             <strong style={listItemTitleStyle}>Sugeridas para probar rapido</strong>
@@ -1133,14 +1216,15 @@ export function NeonV2HomeSections({
                   key={`account-preset-${preset.name}`}
                   type="button"
                   style={secondaryButtonStyle}
-                  onClick={() =>
-                    setAccountForm((current) => ({
-                      ...current,
-                      name: preset.name,
-                      accountType: preset.accountType
-                    }))
-                  }
-                >
+                    onClick={() =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        name: preset.name,
+                        accountType: preset.accountType,
+                        dueDate: preset.accountType === "credit" ? current.dueDate : ""
+                      }))
+                    }
+                  >
                   {preset.name}
                 </button>
               ))}
@@ -1148,15 +1232,38 @@ export function NeonV2HomeSections({
           </div>
 
           <div style={listStyle}>
-            {accounts.map((account) => (
-              <div key={account.id} style={listItemStyle}>
-                <div>
-                  <strong style={listItemTitleStyle}>{account.name}</strong>
-                  <span style={listItemMetaStyle}>{getAccountTypeLabel(account.accountType)}</span>
+              {accounts.map((account) => (
+                <div key={account.id} style={listItemStyle}>
+                  <div>
+                    <strong style={listItemTitleStyle}>{account.name}</strong>
+                    <span style={listItemMetaStyle}>{getAccountTypeLabel(account.accountType)}</span>
+                    {account.accountType === "credit" ? (
+                      <span
+                        style={{
+                          ...listItemMetaStyle,
+                          ...getDueDateBadgeStyle(),
+                          fontWeight: 600
+                        }}
+                      >
+                        {account.dueDate
+                          ? `Fecha limite ${formatShortDate(account.dueDate)} - ${getDueDateStatusLabel(account.dueDate)}`
+                          : "Sin fecha limite cargada"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+                    <strong style={listItemMoneyStyle}>{formatMoney(account.currentBalance)}</strong>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <button type="button" onClick={() => onEditAccount(account.id)} style={secondaryButtonStyle}>
+                        Editar
+                      </button>
+                      <button type="button" onClick={() => onDeleteAccount(account.id)} style={secondaryButtonStyle}>
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <strong style={listItemMoneyStyle}>{formatMoney(account.currentBalance)}</strong>
-              </div>
-            ))}
+              ))}
             {!loading && accounts.length === 0 ? <p style={emptyTextStyle}>Todavia no hay cuentas.</p> : null}
           </div>
         </article>
@@ -1206,12 +1313,12 @@ export function NeonV2HomeSections({
               />
             </label>
             <label style={fieldStyle}>
-              <span>2. De donde sale o entra</span>
-              <select
-                value={journalForm.accountId}
-                onChange={(event) => setJournalForm((current) => ({ ...current, accountId: event.target.value }))}
-                style={inputStyle}
-              >
+                <span>2. De donde sale o entra</span>
+                <select
+                  value={journalForm.accountId}
+                  onChange={(event) => setJournalForm((current) => ({ ...current, accountId: event.target.value }))}
+                  style={inputStyle}
+                >
                 <option value="">Elegir cuenta</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
@@ -1268,39 +1375,22 @@ export function NeonV2HomeSections({
             {journalForm.movementType === "expense" ? (
               <div style={{ ...subPanelStyle, gridColumn: "1 / -1" }}>
                 <div style={{ display: "grid", gap: 4 }}>
-                  <h3 style={subPanelTitleStyle}>3. Datos de la salida</h3>
-                  <span style={panelCaptionStyle}>
-                    Completa tipo de gasto, proveedor y moneda. Si corresponde, agrega tarjeta y vencimiento.
-                  </span>
-                </div>
+                    <h3 style={subPanelTitleStyle}>3. Datos de la salida</h3>
+                    <span style={panelCaptionStyle}>
+                      Completa proveedor, detalle y moneda para registrar la salida.
+                    </span>
+                  </div>
 
-                <div style={formStyle}>
-                  <label style={fieldStyle}>
-                    <span>Tipo de gasto</span>
-                    <select
-                      value={journalForm.expenseKind}
-                      onChange={(event) =>
-                        setJournalForm((current) => ({
-                          ...current,
-                          expenseKind: event.target.value as JournalFormState["expenseKind"],
-                          dueDate: event.target.value === "credit_settlement" ? "" : current.dueDate
-                        }))
-                      }
-                      style={inputStyle}
-                    >
-                      <option value="operational">Gasto operativo</option>
-                      <option value="credit_settlement">Pago de tarjeta</option>
-                    </select>
-                  </label>
-                  <label style={fieldStyle}>
-                    <span>{isCreditSettlement ? "Referencia" : "Proveedor"}</span>
-                    <input
-                      value={journalForm.providerName}
-                      onChange={(event) => setJournalForm((current) => ({ ...current, providerName: event.target.value }))}
-                      style={inputStyle}
-                      placeholder={isCreditSettlement ? "Pago de resumen, cierre..." : "Proveedor o comercio"}
-                    />
-                  </label>
+                  <div style={formStyle}>
+                    <label style={fieldStyle}>
+                      <span>Proveedor</span>
+                      <input
+                        value={journalForm.providerName}
+                        onChange={(event) => setJournalForm((current) => ({ ...current, providerName: event.target.value }))}
+                        style={inputStyle}
+                        placeholder="Proveedor o comercio"
+                      />
+                    </label>
                   <label style={fieldStyle}>
                     <span>Detalle</span>
                     <input
@@ -1321,47 +1411,14 @@ export function NeonV2HomeSections({
                         }))
                       }
                       style={inputStyle}
-                    >
-                      <option value="UYU">Pesos (UYU)</option>
-                      <option value="USD">Dolares (USD)</option>
-                    </select>
-                  </label>
-
-                  {journalUsesCredit || isCreditSettlement ? (
-                    <>
-                      <label style={fieldStyle}>
-                        <span>Tarjeta</span>
-                        <input
-                          list="credit-card-presets"
-                          value={journalForm.creditCardLabel}
-                          onChange={(event) =>
-                            setJournalForm((current) => ({ ...current, creditCardLabel: event.target.value }))
-                          }
-                          style={inputStyle}
-                          placeholder="Oca, Visa, Master..."
-                        />
-                        <datalist id="credit-card-presets">
-                          {CREDIT_CARD_PRESETS.map((cardLabel) => (
-                            <option key={`credit-card-${cardLabel}`} value={cardLabel} />
-                          ))}
-                        </datalist>
-                      </label>
-                      {!isCreditSettlement ? (
-                        <label style={fieldStyle}>
-                          <span>Vencimiento</span>
-                          <input
-                            type="date"
-                            value={journalForm.dueDate}
-                            onChange={(event) => setJournalForm((current) => ({ ...current, dueDate: event.target.value }))}
-                            style={inputStyle}
-                          />
-                        </label>
-                      ) : null}
-                    </>
-                  ) : null}
+                      >
+                        <option value="UYU">Pesos (UYU)</option>
+                        <option value="USD">Dolares (USD)</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
 
             <div style={{ ...subPanelStyle, gridColumn: "1 / -1", display: journalForm.movementType === "transfer" ? "none" : "grid" }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -2464,6 +2521,19 @@ export function NeonV2HomeSections({
                       Gastos {formatDirectionalMoney(account.expenseAmount, "expense")} - Flujo{" "}
                       {formatSignedMoney(account.netFlowAmount)}
                     </span>
+                    {account.accountType === "credit" ? (
+                      <span
+                        style={{
+                          ...listItemMetaStyle,
+                          ...getDueDateBadgeStyle(),
+                          fontWeight: 600
+                        }}
+                      >
+                        {account.dueDate
+                          ? `Fecha limite ${formatShortDate(account.dueDate)} - ${getDueDateStatusLabel(account.dueDate)}`
+                          : "Sin fecha limite cargada"}
+                      </span>
+                    ) : null}
                   </div>
                   <strong style={{ ...listItemMoneyStyle, color: getResultTone(account.currentBalance) }}>
                     {formatMoney(account.currentBalance)}
@@ -2705,9 +2775,8 @@ export function NeonV2HomeSections({
                         {entry.providerName || "Sin proveedor"} - {entry.documentRef || "Sin documento"}
                       </span>
                       <span style={listItemMetaStyle}>
-                        {entry.dueDate ? `Vence ${formatShortDate(entry.dueDate)}` : "Sin vencimiento"} -{" "}
+                        {entry.dueDate ? `Vence ${formatShortDate(entry.dueDate)}` : "Sin vencimiento"} - {getDueDateStatusLabel(entry.dueDate)} -{" "}
                         {entry.currencyCode || "UYU"}
-                        {isOverdue ? " - Vencido" : ""}
                       </span>
                     </div>
                     <strong style={{ ...listItemMoneyStyle, color: isOverdue ? COLORS.expenseAccent : listItemMoneyStyle.color }}>
@@ -2752,7 +2821,7 @@ export function NeonV2HomeSections({
                     <span style={listItemMetaStyle}>{card.pendingCount} movimiento(s) pendientes</span>
                     <span style={listItemMetaStyle}>
                       {card.nextDueDate
-                        ? `Proximo vencimiento ${formatShortDate(card.nextDueDate)} - ${formatMoney(card.nextDueAmount)}`
+                        ? `Proximo vencimiento ${formatShortDate(card.nextDueDate)} - ${getDueDateStatusLabel(card.nextDueDate)} - ${formatMoney(card.nextDueAmount)}`
                         : "Sin vencimientos futuros cargados"}
                     </span>
                     <span style={listItemMetaStyle}>

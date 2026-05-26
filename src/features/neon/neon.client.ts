@@ -96,6 +96,7 @@ const seedAccounts: MutableAccount[] = [
     name: "Caja $",
     accountType: "cash",
     openingBalance: 18000,
+    dueDate: null,
     createdAt: "2026-05-02T08:30:00.000-03:00",
     updatedAt: "2026-05-02T08:30:00.000-03:00"
   },
@@ -105,6 +106,7 @@ const seedAccounts: MutableAccount[] = [
     name: "BROU $",
     accountType: "bank",
     openingBalance: 45000,
+    dueDate: null,
     createdAt: "2026-05-02T08:35:00.000-03:00",
     updatedAt: "2026-05-02T08:35:00.000-03:00"
   },
@@ -114,6 +116,7 @@ const seedAccounts: MutableAccount[] = [
     name: "BBVA $",
     accountType: "bank",
     openingBalance: 22000,
+    dueDate: null,
     createdAt: "2026-05-02T08:40:00.000-03:00",
     updatedAt: "2026-05-02T08:40:00.000-03:00"
   },
@@ -123,6 +126,7 @@ const seedAccounts: MutableAccount[] = [
     name: "ITAU U$S",
     accountType: "bank",
     openingBalance: 0,
+    dueDate: null,
     createdAt: "2026-05-02T08:45:00.000-03:00",
     updatedAt: "2026-05-02T08:45:00.000-03:00"
   },
@@ -132,6 +136,7 @@ const seedAccounts: MutableAccount[] = [
     name: "Credito",
     accountType: "credit",
     openingBalance: 0,
+    dueDate: "2026-05-25",
     createdAt: "2026-05-02T08:50:00.000-03:00",
     updatedAt: "2026-05-02T08:50:00.000-03:00"
   }
@@ -1002,7 +1007,16 @@ function restoreStores() {
       Array.isArray(snapshot.journal)
     ) {
       clientsStore = clone(snapshot.clients);
-      accountsStore = clone(snapshot.accounts);
+      accountsStore = clone(snapshot.accounts).map((account) => ({
+        id: account.id,
+        tenantId: account.tenantId,
+        name: account.name,
+        accountType: account.accountType,
+        openingBalance: account.openingBalance,
+        dueDate: account.dueDate || null,
+        createdAt: account.createdAt,
+        updatedAt: account.updatedAt
+      }));
       categoriesStore = clone(snapshot.categories);
       activitiesStore = clone(snapshot.activities).map(normalizeActivity);
       journalStore = clone(snapshot.journal).map(normalizeJournalEntry);
@@ -1161,6 +1175,7 @@ function deriveAccounts(): NeonAccount[] {
 
     return {
       ...account,
+      dueDate: account.dueDate || null,
       currentBalance: Number(currentBalance.toFixed(2))
     };
   });
@@ -1312,6 +1327,7 @@ export async function createNeonAccount(input: {
   name: string;
   accountType: "cash" | "bank" | "credit";
   openingBalance?: number;
+  dueDate?: string;
 }) {
   const timestamp = nowIso();
   const account: MutableAccount = {
@@ -1320,6 +1336,7 @@ export async function createNeonAccount(input: {
     name: input.name.trim(),
     accountType: input.accountType,
     openingBalance: Number((input.openingBalance || 0).toFixed(2)),
+    dueDate: input.accountType === "credit" ? input.dueDate || null : null,
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -1327,6 +1344,44 @@ export async function createNeonAccount(input: {
   accountsStore.push(account);
   persistStores();
   return deriveAccounts().find((item) => item.id === account.id)!;
+}
+
+export async function updateNeonAccount(
+  accountId: number,
+  input: {
+    name: string;
+    accountType: "cash" | "bank" | "credit";
+    openingBalance?: number;
+    dueDate?: string;
+  }
+) {
+  const accountIndex = accountsStore.findIndex((account) => account.id === accountId);
+  if (accountIndex < 0) {
+    throw new Error("No se pudo actualizar la cuenta");
+  }
+
+  const currentAccount = accountsStore[accountIndex];
+  accountsStore[accountIndex] = {
+    ...currentAccount,
+    name: input.name.trim(),
+    accountType: input.accountType,
+    openingBalance: Number((input.openingBalance || 0).toFixed(2)),
+    dueDate: input.accountType === "credit" ? input.dueDate || null : null,
+    updatedAt: nowIso()
+  };
+
+  persistStores();
+  return deriveAccounts().find((item) => item.id === accountId)!;
+}
+
+export async function deleteNeonAccount(accountId: number) {
+  const accountIndex = accountsStore.findIndex((account) => account.id === accountId);
+  if (accountIndex < 0) {
+    throw new Error("No se pudo borrar la cuenta");
+  }
+
+  accountsStore.splice(accountIndex, 1);
+  persistStores();
 }
 
 export async function listNeonCategories(): Promise<NeonCategory[]> {

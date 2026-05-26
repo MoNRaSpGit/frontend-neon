@@ -8,6 +8,7 @@ export type AccountFormState = {
   name: string;
   accountType: "cash" | "bank" | "credit";
   openingBalance: string;
+  dueDate: string;
 };
 
 export type ActivityFormState = {
@@ -90,6 +91,15 @@ export type PendingDeleteCostCenterState = {
 
 export type PendingEditCostCenterState = {
   id: string;
+} | null;
+
+export type PendingEditAccountState = {
+  id: number;
+} | null;
+
+export type PendingDeleteAccountState = {
+  id: number;
+  label: string;
 } | null;
 
 export type PendingDeleteJournalState = {

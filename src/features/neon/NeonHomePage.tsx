@@ -5,8 +5,10 @@ import {
   createNeonActivity,
   createNeonClient,
   createNeonJournalEntry,
+  deleteNeonAccount,
   deleteNeonJournalEntry,
   updateNeonActivity,
+  updateNeonAccount,
   listNeonAccounts,
   listNeonActivities,
   listNeonClients,
@@ -28,7 +30,9 @@ import {
   JournalFormState,
   NeonCostCenterRecord,
   NeonCompanyKey,
+  PendingDeleteAccountState,
   PendingEditCostCenterState,
+  PendingEditAccountState,
   PendingDeleteCostCenterState,
   NeonWorkspaceView,
   PendingDeleteJournalState,
@@ -167,6 +171,8 @@ export function NeonHomePage() {
   const [activeCompany, setActiveCompany] = useState<NeonCompanyKey>(getInitialActiveCompany);
   const [costCenters, setCostCenters] = useState<NeonCostCenterRecord[]>(getInitialCostCenters);
   const [editingActivityId, setEditingActivityId] = useState<number | null>(null);
+  const [pendingEditAccount, setPendingEditAccount] = useState<PendingEditAccountState>(null);
+  const [pendingDeleteAccount, setPendingDeleteAccount] = useState<PendingDeleteAccountState>(null);
   const [pendingEditCostCenter, setPendingEditCostCenter] = useState<PendingEditCostCenterState>(null);
   const [pendingDeleteCostCenter, setPendingDeleteCostCenter] = useState<PendingDeleteCostCenterState>(null);
   const [pendingDeleteJournal, setPendingDeleteJournal] = useState<PendingDeleteJournalState>(null);
@@ -181,7 +187,8 @@ export function NeonHomePage() {
   const [accountForm, setAccountForm] = useState<AccountFormState>({
     name: "",
     accountType: "cash",
-    openingBalance: ""
+    openingBalance: "",
+    dueDate: ""
   });
   const [activityForm, setActivityForm] = useState<ActivityFormState>({
     activityDate: getTodayDateInputValue(),
@@ -310,26 +317,121 @@ export function NeonHomePage() {
       return;
     }
 
+    if (accountForm.accountType === "credit" && !accountForm.dueDate) {
+      toast.error("Falta la fecha limite de pago para la cuenta de credito");
+      return;
+    }
+
     setSavingAccount(true);
     try {
-      const createdAccount = await createNeonAccount({
-        name,
-        accountType: accountForm.accountType,
-        openingBalance
-      });
+      const savedAccount = pendingEditAccount
+        ? await updateNeonAccount(pendingEditAccount.id, {
+            name,
+            accountType: accountForm.accountType,
+            openingBalance,
+            dueDate: accountForm.accountType === "credit" ? accountForm.dueDate : undefined
+          })
+        : await createNeonAccount({
+            name,
+            accountType: accountForm.accountType,
+            openingBalance,
+            dueDate: accountForm.accountType === "credit" ? accountForm.dueDate : undefined
+          });
 
-      setAccounts((current) => [...current, createdAccount].sort((left, right) => left.id - right.id));
-      setAccountForm({ name: "", accountType: "cash", openingBalance: "" });
+      setAccounts((current) =>
+        pendingEditAccount
+          ? current.map((account) => (account.id === savedAccount.id ? savedAccount : account)).sort((left, right) => left.id - right.id)
+          : [...current, savedAccount].sort((left, right) => left.id - right.id)
+      );
+      setAccountForm({ name: "", accountType: "cash", openingBalance: "", dueDate: "" });
+      setPendingEditAccount(null);
       setJournalForm((current) => ({
         ...current,
-        accountId: current.accountId || String(createdAccount.id)
+        accountId: current.accountId || String(savedAccount.id)
       }));
-      toast.success("Cuenta guardada", { autoClose: 2400 });
+      toast.success(pendingEditAccount ? "Cuenta actualizada" : "Cuenta guardada", { autoClose: 2400 });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo guardar la cuenta");
     } finally {
       setSavingAccount(false);
     }
+  }
+
+  function handleEditAccount(accountId: number) {
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) {
+      toast.error("No se pudo cargar esa cuenta");
+      return;
+    }
+
+    const isUsedInJournal = journalEntries.some((entry) => entry.accountId === account.id || entry.transferAccountId === account.id);
+    if (isUsedInJournal) {
+      toast.error("Esa cuenta ya tiene movimientos y no conviene editarla");
+      return;
+    }
+
+    setAccountForm({
+      name: account.name,
+      accountType: account.accountType,
+      openingBalance: String(account.openingBalance),
+      dueDate: account.dueDate || ""
+    });
+    setPendingEditAccount({ id: account.id });
+  }
+
+  function handleCancelAccountEdit() {
+    setPendingEditAccount(null);
+    setAccountForm({
+      name: "",
+      accountType: "cash",
+      openingBalance: "",
+      dueDate: ""
+    });
+  }
+
+  function handleRequestDeleteAccount(accountId: number) {
+    const account = accounts.find((item) => item.id === accountId);
+    if (!account) {
+      toast.error("No se pudo encontrar esa cuenta");
+      return;
+    }
+
+    const isUsedInJournal = journalEntries.some((entry) => entry.accountId === account.id || entry.transferAccountId === account.id);
+    if (isUsedInJournal) {
+      toast.error("Esa cuenta ya tiene movimientos y no conviene borrarla");
+      return;
+    }
+
+    setPendingDeleteAccount({
+      id: account.id,
+      label: account.name
+    });
+  }
+
+  async function handleConfirmDeleteAccount() {
+    if (!pendingDeleteAccount) {
+      return;
+    }
+
+    setSavingAccount(true);
+    try {
+      await deleteNeonAccount(pendingDeleteAccount.id);
+      setAccounts((current) => current.filter((account) => account.id !== pendingDeleteAccount.id));
+      setSelectedAccountId((current) => (current === pendingDeleteAccount.id ? null : current));
+      setPendingDeleteAccount(null);
+      if (pendingEditAccount?.id === pendingDeleteAccount.id) {
+        handleCancelAccountEdit();
+      }
+      toast.success("Cuenta borrada", { autoClose: 2400 });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo borrar la cuenta");
+    } finally {
+      setSavingAccount(false);
+    }
+  }
+
+  function handleCancelDeleteAccount() {
+    setPendingDeleteAccount(null);
   }
 
   async function handleCreateActivity(event: FormEvent<HTMLFormElement>) {
@@ -444,7 +546,6 @@ export function NeonHomePage() {
   async function handleCreateJournalEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const selectedAccount = accounts.find((account) => account.id === Number(journalForm.accountId));
     if (!journalForm.accountId) {
       toast.error("Campo faltante: Cuenta. Elegi desde que cuenta sale o entra el movimiento.");
       return;
@@ -537,32 +638,9 @@ export function NeonHomePage() {
         return;
       }
 
-      if (journalForm.expenseKind === "credit_settlement") {
-        if (selectedAccount?.accountType === "credit") {
-          toast.error("Campo inconsistente: Cuenta. Un pago de tarjeta debe salir desde Caja o Banco, no desde una cuenta de credito.");
-          return;
-        }
-
-        if (!journalForm.creditCardLabel.trim()) {
-          toast.error("Campo faltante: Tarjeta. Indica que tarjeta estas cancelando.");
-          return;
-        }
-      } else {
-        if (!journalForm.providerName.trim()) {
-          toast.error("Campo faltante: Proveedor. Escribi a quien le hiciste el gasto.");
-          return;
-        }
-      }
-
-      if (selectedAccount?.accountType === "credit" && journalForm.expenseKind !== "credit_settlement") {
-        if (!journalForm.creditCardLabel.trim()) {
-          toast.error("Campo faltante: Tarjeta. En una compra a credito tenes que indicar la tarjeta.");
-          return;
-        }
-        if (!journalForm.dueDate) {
-          toast.error("Campo faltante: Vencimiento. En una compra a credito tenes que cargar la fecha de vencimiento.");
-          return;
-        }
+      if (!journalForm.providerName.trim()) {
+        toast.error("Campo faltante: Proveedor. Escribi a quien le hiciste el gasto.");
+        return;
       }
     }
 
@@ -583,26 +661,17 @@ export function NeonHomePage() {
         transferAccountId: journalForm.movementType === "transfer" ? Number(journalForm.transferAccountId) : undefined,
         totalAmount,
         description: journalForm.description.trim() || undefined,
-        expenseKind: journalForm.movementType === "expense" ? journalForm.expenseKind : undefined,
+        expenseKind: journalForm.movementType === "expense" ? "operational" : undefined,
         providerName:
-          journalForm.movementType === "expense" && journalForm.expenseKind !== "credit_settlement"
+          journalForm.movementType === "expense"
             ? journalForm.providerName.trim() || undefined
             : undefined,
         documentRef: undefined,
         quantity: undefined,
         unitLabel: undefined,
         currencyCode: journalForm.movementType === "expense" ? journalForm.currencyCode || undefined : undefined,
-        creditCardLabel:
-          journalForm.movementType === "expense" &&
-          (selectedAccount?.accountType === "credit" || journalForm.expenseKind === "credit_settlement")
-            ? journalForm.creditCardLabel.trim() || undefined
-            : undefined,
-        dueDate:
-          journalForm.movementType === "expense" &&
-          selectedAccount?.accountType === "credit" &&
-          journalForm.expenseKind !== "credit_settlement"
-            ? journalForm.dueDate || undefined
-            : undefined,
+        creditCardLabel: undefined,
+        dueDate: undefined,
         allocations: journalForm.movementType === "transfer" ? undefined : normalizedAllocations.length > 0 ? normalizedAllocations : undefined
       });
 
@@ -889,6 +958,8 @@ export function NeonHomePage() {
         customTypeLabel: "",
         label: ""
       });
+      setPendingEditAccount(null);
+      setPendingDeleteAccount(null);
       setPendingDeleteCostCenter(null);
       setPendingEditCostCenter(null);
       setPendingDeleteJournal(null);
@@ -940,6 +1011,8 @@ export function NeonHomePage() {
         activeCompany={activeCompany}
         setActiveCompany={setActiveCompany}
         editingActivityId={editingActivityId}
+        pendingEditAccount={pendingEditAccount}
+        pendingDeleteAccount={pendingDeleteAccount}
         pendingEditCostCenter={pendingEditCostCenter}
         pendingDeleteCostCenter={pendingDeleteCostCenter}
         pendingDeleteJournal={pendingDeleteJournal}
@@ -956,6 +1029,11 @@ export function NeonHomePage() {
         dashboard={dashboard}
         onCreateClient={handleCreateClient}
         onCreateAccount={handleCreateAccount}
+        onEditAccount={handleEditAccount}
+        onCancelAccountEdit={handleCancelAccountEdit}
+        onDeleteAccount={handleRequestDeleteAccount}
+        onConfirmDeleteAccount={handleConfirmDeleteAccount}
+        onCancelDeleteAccount={handleCancelDeleteAccount}
         onCreateActivity={handleCreateActivity}
         onStartActivityEdit={handleStartActivityEdit}
         onCancelActivityEdit={handleCancelActivityEdit}

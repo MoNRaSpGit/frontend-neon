@@ -9,6 +9,7 @@ function createAccount(input: Partial<NeonAccount> & Pick<NeonAccount, "id" | "n
     name: input.name,
     accountType: input.accountType,
     openingBalance: 0,
+    dueDate: input.dueDate ?? null,
     currentBalance: 0,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z"

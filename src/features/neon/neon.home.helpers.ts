@@ -62,6 +62,14 @@ export function formatShortDate(dateIso: string) {
   }).format(localDate);
 }
 
+export function getDaysUntilDate(dateIso: string, referenceDateIso = getTodayDateInputValue()) {
+  const targetDate = parseLocalDateInput(dateIso);
+  const referenceDate = parseLocalDateInput(referenceDateIso);
+  const millisecondsPerDay = 1000 * 60 * 60 * 24;
+
+  return Math.round((targetDate.getTime() - referenceDate.getTime()) / millisecondsPerDay);
+}
+
 export function formatHour(dateTime: string) {
   return new Intl.DateTimeFormat("es-UY", {
     hour: "2-digit",

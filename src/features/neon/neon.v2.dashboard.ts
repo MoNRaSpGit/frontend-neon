@@ -61,6 +61,7 @@ export type AccountReportItem = {
   accountName: string;
   accountType: NeonAccount["accountType"];
   openingBalance: number;
+  dueDate: string | null;
   currentBalance: number;
   incomeAmount: number;
   expenseAmount: number;
@@ -395,6 +396,7 @@ function buildAccountReports(accounts: NeonAccount[], journalEntries: NeonJourna
         accountName: account.name,
         accountType: account.accountType,
         openingBalance: account.openingBalance,
+        dueDate: account.dueDate,
         currentBalance: account.currentBalance,
         incomeAmount,
         expenseAmount,

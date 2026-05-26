@@ -18,6 +18,71 @@ Aca corresponde anotar:
 
 `neon` sigue en estado de validacion funcional con cliente.
 
+## Corte 2026-05-26 - ajustes finos en cuentas y credito
+
+En este corte se aplicaron cambios de UX puntuales pedidos durante la validacion del piloto.
+
+### Cuentas
+
+Quedo agregado:
+
+- crear cuentas de tipo `credito` con `fecha limite de pago`
+- mostrar esa fecha en `Cuentas`
+- mostrar esa fecha tambien en `Reportes > Saldos de cuentas`
+- lectura visible tipo `Vence en X dias` o `Vencido hace X dias`
+
+Tambien quedo agregado:
+
+- `Editar` cuenta
+- `Eliminar` cuenta
+
+Regla implementada:
+
+- si una cuenta ya tiene movimientos, no se deja editar ni borrar
+- si no tiene movimientos, puede editarse o borrarse desde el propio bloque `Cuentas`
+
+### Diario
+
+Se simplifico el bloque de salida del diario.
+
+Quedo removido del formulario visible:
+
+- `Tarjeta`
+- `Vencimiento`
+- `Pago de tarjeta` como tipo visible del flujo
+
+Regla actual del corte:
+
+- el diario queda mas corto y directo para carga real
+- los movimientos nuevos ya no exigen esos campos en UI
+
+### Ajuste visual
+
+La `fecha limite` se remarco de forma sutil:
+
+- sin pastilla
+- sin fondo extra
+- solo texto en tono naranja oscuro
+
+### Validacion tecnica del corte 2026-05-26
+
+Validaciones ejecutadas:
+
+- `npm run typecheck` OK
+- `npm run test -- --run src/features/neon/neon.v2.dashboard.test.ts` OK
+- `npm run test:smoke` OK
+- `npm run lint` OK
+- `npm run build` OK
+
+Validacion funcional aplicada:
+
+- alta de cuenta credito con fecha limite
+- lectura de fecha limite en cuentas
+- lectura de fecha limite en reportes
+- edicion de cuenta sin movimientos
+- borrado de cuenta sin movimientos
+- bloqueo de edicion/borrado para cuentas con movimientos
+
 ## Ajuste validado del flujo comercial
 
 Se corrigio el enfoque comercial de actividades despues de feedback directo del cliente.
