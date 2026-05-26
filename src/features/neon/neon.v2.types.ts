@@ -100,6 +100,7 @@ export type PendingEditAccountState = {
 export type PendingDeleteAccountState = {
   id: number;
   label: string;
+  relatedMovementCount: number;
 } | null;
 
 export type PendingDeleteJournalState = {

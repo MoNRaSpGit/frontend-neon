@@ -887,6 +887,11 @@ export function NeonV2HomeSections({
               <p style={modalBodyStyle}>
                 Vas a borrar la cuenta <strong>{pendingDeleteAccount.label}</strong>. Esta accion no se puede deshacer.
               </p>
+              {pendingDeleteAccount.relatedMovementCount > 0 ? (
+                <p style={{ ...modalBodyStyle, color: COLORS.expenseAccent }}>
+                  Esta cuenta tiene {pendingDeleteAccount.relatedMovementCount} movimiento(s) asociado(s). Si confirmas, tambien se van a borrar.
+                </p>
+              ) : null}
               <div style={modalActionsStyle}>
                 <button type="button" onClick={onCancelDeleteAccount} style={secondaryButtonStyle}>
                   Cancelar

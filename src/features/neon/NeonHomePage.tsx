@@ -396,9 +396,14 @@ export function NeonHomePage() {
       return;
     }
 
+    const relatedMovementCount = journalEntries.filter(
+      (entry) => entry.accountId === account.id || entry.transferAccountId === account.id
+    ).length;
+
     setPendingDeleteAccount({
       id: account.id,
-      label: account.name
+      label: account.name,
+      relatedMovementCount
     });
   }
 
