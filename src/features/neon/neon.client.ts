@@ -1380,6 +1380,7 @@ export async function deleteNeonAccount(accountId: number) {
     throw new Error("No se pudo borrar la cuenta");
   }
 
+  journalStore = journalStore.filter((entry) => entry.accountId !== accountId && entry.transferAccountId !== accountId);
   accountsStore.splice(accountIndex, 1);
   persistStores();
 }

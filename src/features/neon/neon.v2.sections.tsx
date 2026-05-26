@@ -930,10 +930,10 @@ export function NeonV2HomeSections({
           </div>
         </div>
       ) : null}
-      {pendingResetWorkspace ? (
-        <div style={modalOverlayStyle}>
-          <div style={modalCardStyle}>
-            <h3 style={modalTitleStyle}>{pendingResetWorkspace.title}</h3>
+        {pendingResetWorkspace ? (
+          <div style={modalOverlayStyle}>
+            <div style={modalCardStyle}>
+              <h3 style={modalTitleStyle}>{pendingResetWorkspace.title}</h3>
             <p style={modalBodyStyle}>{pendingResetWorkspace.message}</p>
             <div style={modalActionsStyle}>
               <button type="button" onClick={onCancelResetWorkspace} style={secondaryButtonStyle}>
@@ -950,12 +950,79 @@ export function NeonV2HomeSections({
                 {pendingResetWorkspace.confirmLabel}
               </button>
             </div>
+            </div>
           </div>
-        </div>
-      ) : null}
-      {pendingEditCostCenter ? (
-        <div style={modalOverlayStyle}>
-          <div style={modalCardStyle}>
+        ) : null}
+        {pendingEditAccount ? (
+          <div style={modalOverlayStyle}>
+            <div style={modalCardStyle}>
+              <h3 style={modalTitleStyle}>Editar cuenta</h3>
+              <form onSubmit={onCreateAccount} style={{ display: "grid", gap: 14 }}>
+                <label style={fieldStyle}>
+                  <span>Nombre</span>
+                  <input
+                    value={accountForm.name}
+                    onChange={(event) => setAccountForm((current) => ({ ...current, name: event.target.value }))}
+                    style={inputStyle}
+                    placeholder="Caja, BBVA, BROU..."
+                  />
+                </label>
+                <label style={fieldStyle}>
+                  <span>Tipo</span>
+                  <select
+                    value={accountForm.accountType}
+                    onChange={(event) =>
+                      setAccountForm((current) => ({
+                        ...current,
+                        accountType: event.target.value as AccountFormState["accountType"],
+                        dueDate: event.target.value === "credit" ? current.dueDate : ""
+                      }))
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="cash">Caja</option>
+                    <option value="bank">Banco</option>
+                    <option value="credit">Credito</option>
+                  </select>
+                </label>
+                <label style={fieldStyle}>
+                  <span>Saldo inicial</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={accountForm.openingBalance}
+                    onChange={(event) => setAccountForm((current) => ({ ...current, openingBalance: event.target.value }))}
+                    style={inputStyle}
+                    placeholder="0"
+                  />
+                </label>
+                {accountForm.accountType === "credit" ? (
+                  <label style={fieldStyle}>
+                    <span>Fecha limite de pago</span>
+                    <input
+                      type="date"
+                      value={accountForm.dueDate}
+                      onChange={(event) => setAccountForm((current) => ({ ...current, dueDate: event.target.value }))}
+                      style={inputStyle}
+                    />
+                  </label>
+                ) : null}
+                <div style={modalActionsStyle}>
+                  <button type="button" onClick={onCancelAccountEdit} style={secondaryButtonStyle}>
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={savingAccount} style={primaryButtonStyle}>
+                    {savingAccount ? "Guardando..." : "Guardar cambios"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
+        {pendingEditCostCenter ? (
+          <div style={modalOverlayStyle}>
+            <div style={modalCardStyle}>
             <h3 style={modalTitleStyle}>Editar centro de costo</h3>
             <form onSubmit={onConfirmCostCenterEdit} style={{ display: "grid", gap: 14 }}>
               <label style={fieldStyle}>
@@ -1199,13 +1266,8 @@ export function NeonV2HomeSections({
                 </label>
               ) : null}
                 <button type="submit" disabled={savingAccount} style={primaryButtonStyle}>
-                 {savingAccount ? "Guardando..." : pendingEditAccount ? "Guardar cambios" : "Crear cuenta"}
+                 {savingAccount ? "Guardando..." : "Crear cuenta"}
                 </button>
-                {pendingEditAccount ? (
-                  <button type="button" onClick={onCancelAccountEdit} style={secondaryButtonStyle}>
-                    Cancelar edicion
-                  </button>
-                ) : null}
               </form>
 
           <div style={{ ...subPanelStyle, gap: 10 }}>

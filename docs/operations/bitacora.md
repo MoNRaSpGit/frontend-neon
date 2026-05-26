@@ -38,8 +38,9 @@ Tambien quedo agregado:
 
 Regla implementada:
 
-- si una cuenta ya tiene movimientos, no se deja editar ni borrar
-- si no tiene movimientos, puede editarse o borrarse desde el propio bloque `Cuentas`
+- si una cuenta ya tiene movimientos, no se deja editar
+- si se borra una cuenta en modo prueba, tambien se borran sus movimientos asociados para mantener consistencia
+- la edicion de cuenta se hace desde modal propio
 
 ### Diario
 
@@ -79,9 +80,9 @@ Validacion funcional aplicada:
 - alta de cuenta credito con fecha limite
 - lectura de fecha limite en cuentas
 - lectura de fecha limite en reportes
-- edicion de cuenta sin movimientos
-- borrado de cuenta sin movimientos
-- bloqueo de edicion/borrado para cuentas con movimientos
+- edicion de cuenta desde modal
+- borrado de cuenta con limpieza de movimientos asociados
+- bloqueo de edicion para cuentas con movimientos
 
 ## Ajuste validado del flujo comercial
 

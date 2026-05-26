@@ -396,12 +396,6 @@ export function NeonHomePage() {
       return;
     }
 
-    const isUsedInJournal = journalEntries.some((entry) => entry.accountId === account.id || entry.transferAccountId === account.id);
-    if (isUsedInJournal) {
-      toast.error("Esa cuenta ya tiene movimientos y no conviene borrarla");
-      return;
-    }
-
     setPendingDeleteAccount({
       id: account.id,
       label: account.name
@@ -416,13 +410,12 @@ export function NeonHomePage() {
     setSavingAccount(true);
     try {
       await deleteNeonAccount(pendingDeleteAccount.id);
-      setAccounts((current) => current.filter((account) => account.id !== pendingDeleteAccount.id));
-      setSelectedAccountId((current) => (current === pendingDeleteAccount.id ? null : current));
+      await loadHomeData();
       setPendingDeleteAccount(null);
       if (pendingEditAccount?.id === pendingDeleteAccount.id) {
         handleCancelAccountEdit();
       }
-      toast.success("Cuenta borrada", { autoClose: 2400 });
+      toast.success("Cuenta y movimientos asociados borrados", { autoClose: 2400 });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo borrar la cuenta");
     } finally {
