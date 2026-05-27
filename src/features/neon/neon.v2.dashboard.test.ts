@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildCommercialSummaryByCompany, buildDashboardSummary } from "./neon.v2.dashboard";
-import { NeonAccount, NeonActivity, NeonJournalEntry } from "./neon.types";
+import { NeonAccount, NeonActivity, NeonCreditEntry, NeonJournalEntry } from "./neon.types";
 
 function createAccount(input: Partial<NeonAccount> & Pick<NeonAccount, "id" | "name" | "accountType">): NeonAccount {
   return {
@@ -27,6 +27,7 @@ function createEntry(input: Partial<NeonJournalEntry> & Pick<NeonJournalEntry, "
     accountName: input.accountName,
     totalAmount: input.totalAmount,
     description: input.description ?? null,
+    providerId: input.providerId ?? null,
     providerName: input.providerName ?? null,
     documentRef: input.documentRef ?? null,
     quantity: input.quantity ?? null,
@@ -70,7 +71,150 @@ function createActivity(input: Partial<NeonActivity> & Pick<NeonActivity, "id" |
   };
 }
 
+function createCreditEntry(
+  input: Partial<NeonCreditEntry> &
+    Pick<NeonCreditEntry, "id" | "supplierId" | "supplierName" | "creditKind" | "creditDate" | "dueDate" | "totalAmount" | "pendingAmount">
+): NeonCreditEntry {
+  return {
+    id: input.id,
+    tenantId: 1,
+    companyKey: input.companyKey ?? "empresa_verde",
+    supplierId: input.supplierId,
+    supplierName: input.supplierName,
+    creditKind: input.creditKind,
+    creditDate: input.creditDate,
+    dueDate: input.dueDate,
+    totalAmount: input.totalAmount,
+    pendingAmount: input.pendingAmount,
+    description: input.description ?? null,
+    documentRef: input.documentRef ?? null,
+    currencyCode: input.currencyCode ?? "UYU",
+    allocations: input.allocations ?? [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z"
+  };
+}
+
 describe("buildDashboardSummary debt and settlements", () => {
+  it("builds pending debt from supplier credit entries and payment settlements", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+
+    const accounts: NeonAccount[] = [createAccount({ id: 1, name: "Caja", accountType: "cash" })];
+    const creditEntries: NeonCreditEntry[] = [
+      createCreditEntry({
+        id: 101,
+        supplierId: 10,
+        supplierName: "UTE",
+        creditKind: "bill",
+        creditDate: "2026-05-01",
+        dueDate: "2026-05-10",
+        totalAmount: 1000,
+        pendingAmount: 400
+      }),
+      createCreditEntry({
+        id: 102,
+        supplierId: 10,
+        supplierName: "UTE",
+        creditKind: "bill",
+        creditDate: "2026-05-03",
+        dueDate: "2026-05-15",
+        totalAmount: 700,
+        pendingAmount: 700
+      })
+    ];
+    const journalEntries: NeonJournalEntry[] = [
+      createEntry({
+        id: 201,
+        movementType: "expense",
+        movementDate: "2026-05-05",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 600,
+        providerId: 10,
+        providerName: "UTE",
+        description: "Pago parcial UTE",
+        expenseKind: "credit_settlement"
+      })
+    ];
+
+    const summary = buildDashboardSummary(accounts, [], journalEntries, creditEntries, "all");
+
+    expect(summary.pendingDebtAmount).toBe(1100);
+    expect(summary.pendingDebtCount).toBe(2);
+    expect(summary.pendingDebtByCard[0]).toMatchObject({
+      label: "UTE",
+      amount: 1100,
+      count: 2
+    });
+    expect(summary.recentCardSettlements[0]).toMatchObject({
+      cardLabel: "UTE",
+      totalAmount: 600,
+      sourceAccountName: "Caja"
+    });
+
+    vi.useRealTimers();
+  });
+
+  it("keeps fully paid supplier debts visible in settled payments", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));
+
+    const accounts: NeonAccount[] = [createAccount({ id: 1, name: "Caja", accountType: "cash" })];
+    const creditEntries: NeonCreditEntry[] = [
+      createCreditEntry({
+        id: 111,
+        supplierId: 10,
+        supplierName: "Cococola",
+        creditKind: "purchase",
+        creditDate: "2026-05-01",
+        dueDate: "2026-05-10",
+        totalAmount: 700,
+        pendingAmount: 0
+      })
+    ];
+    const journalEntries: NeonJournalEntry[] = [
+      createEntry({
+        id: 211,
+        movementType: "expense",
+        movementDate: "2026-05-20",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 500,
+        providerId: 10,
+        providerName: "Cococola",
+        description: "Pago 1",
+        expenseKind: "credit_settlement"
+      }),
+      createEntry({
+        id: 212,
+        movementType: "expense",
+        movementDate: "2026-05-21",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 200,
+        providerId: 10,
+        providerName: "Cococola",
+        description: "Pago 2",
+        expenseKind: "credit_settlement"
+      })
+    ];
+
+    const summary = buildDashboardSummary(accounts, [], journalEntries, creditEntries, "settled");
+
+    expect(summary.settledDebtCount).toBe(1);
+    expect(summary.settledDebtAmount).toBe(700);
+    expect(summary.pendingDebtEntries[0]).toMatchObject({
+      providerName: "Cococola",
+      originalAmount: 700,
+      paidAmount: 700,
+      pendingAmount: 0
+    });
+    expect(summary.pendingDebtEntries[0]?.appliedPayments).toHaveLength(2);
+
+    vi.useRealTimers();
+  });
+
   it("nets credit settlements against card purchases and keeps only pending balances", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-06T12:00:00.000Z"));

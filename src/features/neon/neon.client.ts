@@ -2,11 +2,13 @@ import {
   NeonAccount,
   NeonActivity,
   NeonCategory,
+  NeonCreditEntry,
   NeonClient,
   NeonExpense,
   NeonJournalAllocation,
   NeonJournalAllocationInput,
   NeonJournalEntry,
+  NeonSupplier,
   NeonStatus
 } from "./neon.types";
 
@@ -24,6 +26,7 @@ const DEMO_USER = {
 
 type MutableAccount = Omit<NeonAccount, "currentBalance">;
 type MutableActivity = Omit<NeonActivity, "collectedAmount" | "pendingAmount" | "payments">;
+type MutableCreditEntry = Omit<NeonCreditEntry, "pendingAmount">;
 type JournalCreationInput = {
   companyKey?: "empresa_verde" | "empresa_negra" | "empresa_c";
   movementType: "income" | "expense" | "transfer";
@@ -33,6 +36,7 @@ type JournalCreationInput = {
   totalAmount: number;
   description?: string;
   expenseKind?: "operational" | "credit_settlement";
+  providerId?: number;
   providerName?: string;
   documentRef?: string;
   quantity?: number;
@@ -48,6 +52,18 @@ type JournalCreationInput = {
   liters?: number;
   allocations?: NeonJournalAllocationInput[];
 };
+type CreditEntryCreationInput = {
+  companyKey?: "empresa_verde" | "empresa_negra" | "empresa_c";
+  supplierId: number;
+  creditKind: "purchase" | "loan" | "bill";
+  creditDate: string;
+  dueDate: string;
+  totalAmount: number;
+  description?: string;
+  documentRef?: string;
+  currencyCode?: "UYU" | "USD";
+  allocations: NeonJournalAllocationInput[];
+};
 type ExpenseCreationInput = {
   destinationType: "activity" | "personal" | "vehicle" | "rental" | "other" | "custom";
   destinationActivityId?: number;
@@ -57,7 +73,7 @@ type ExpenseCreationInput = {
 };
 
 const demoNow = "2026-05-13T21:30:00.000-03:00";
-const DEMO_STORAGE_KEY = "neon-demo-workspace-v4-commercial-flow";
+const DEMO_STORAGE_KEY = "neon-demo-workspace-v5-suppliers-and-credits";
 
 const seedClients: NeonClient[] = [
   {
@@ -86,6 +102,64 @@ const seedClients: NeonClient[] = [
     notes: "Cliente demo para actividad pendiente de facturar",
     createdAt: "2026-05-04T09:00:00.000-03:00",
     updatedAt: "2026-05-04T09:00:00.000-03:00"
+  }
+];
+
+const seedSuppliers: NeonSupplier[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    name: "Proveedor generico",
+    address: null,
+    phone: null,
+    notes: "Usar para compras chicas o sin proveedor fijo",
+    isGeneric: true,
+    createdAt: "2026-05-02T09:05:00.000-03:00",
+    updatedAt: "2026-05-02T09:05:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    name: "Visa Itau",
+    address: "Montevideo",
+    phone: "29000001",
+    notes: "Tarjeta corporativa",
+    isGeneric: false,
+    createdAt: "2026-05-02T09:06:00.000-03:00",
+    updatedAt: "2026-05-02T09:06:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    name: "Master BBVA",
+    address: "Montevideo",
+    phone: "29000002",
+    notes: "Tarjeta para combustible y ruta",
+    isGeneric: false,
+    createdAt: "2026-05-02T09:07:00.000-03:00",
+    updatedAt: "2026-05-02T09:07:00.000-03:00"
+  },
+  {
+    id: 4,
+    tenantId: DEMO_TENANT.id,
+    name: "UTE",
+    address: "Montevideo",
+    phone: "08001930",
+    notes: "Servicio publico",
+    isGeneric: false,
+    createdAt: "2026-05-02T09:08:00.000-03:00",
+    updatedAt: "2026-05-02T09:08:00.000-03:00"
+  },
+  {
+    id: 5,
+    tenantId: DEMO_TENANT.id,
+    name: "OSE",
+    address: "Montevideo",
+    phone: "08001871",
+    notes: "Servicio publico",
+    isGeneric: false,
+    createdAt: "2026-05-02T09:09:00.000-03:00",
+    updatedAt: "2026-05-02T09:09:00.000-03:00"
   }
 ];
 
@@ -129,16 +203,6 @@ const seedAccounts: MutableAccount[] = [
     dueDate: null,
     createdAt: "2026-05-02T08:45:00.000-03:00",
     updatedAt: "2026-05-02T08:45:00.000-03:00"
-  },
-  {
-    id: 5,
-    tenantId: DEMO_TENANT.id,
-    name: "Credito",
-    accountType: "credit",
-    openingBalance: 0,
-    dueDate: "2026-05-25",
-    createdAt: "2026-05-02T08:50:00.000-03:00",
-    updatedAt: "2026-05-02T08:50:00.000-03:00"
   }
 ];
 
@@ -263,6 +327,106 @@ const seedActivities: MutableActivity[] = [
   }
 ];
 
+const seedCreditEntries: MutableCreditEntry[] = [
+  {
+    id: 1,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    supplierId: 2,
+    supplierName: "Visa Itau",
+    creditKind: "purchase",
+    creditDate: "2026-05-04",
+    dueDate: "2026-05-20",
+    totalAmount: 3100,
+    description: "Materiales pantalla led",
+    documentRef: null,
+    currencyCode: "UYU",
+    allocations: [
+      {
+        id: 201,
+        destinationType: "activity",
+        destinationActivityId: 2,
+        destinationActivityCode: "#15/2026",
+        destinationActivityDescription: "Pantalla led evento invierno",
+        destinationLabel: null,
+        amount: 3100,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-04T15:00:00.000-03:00",
+    updatedAt: "2026-05-04T15:00:00.000-03:00"
+  },
+  {
+    id: 2,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_negra",
+    supplierId: 3,
+    supplierName: "Master BBVA",
+    creditKind: "purchase",
+    creditDate: "2026-05-10",
+    dueDate: "2026-05-22",
+    totalAmount: 1500,
+    description: "Combustible movil promocional",
+    documentRef: null,
+    currencyCode: "UYU",
+    allocations: [
+      {
+        id: 202,
+        destinationType: "activity",
+        destinationActivityId: 5,
+        destinationActivityCode: "#18/2026",
+        destinationActivityDescription: "Movil promocional ruta",
+        destinationLabel: null,
+        amount: 1500,
+        metadata: null
+      }
+    ],
+    createdAt: "2026-05-10T10:15:00.000-03:00",
+    updatedAt: "2026-05-10T10:15:00.000-03:00"
+  },
+  {
+    id: 3,
+    tenantId: DEMO_TENANT.id,
+    companyKey: "empresa_verde",
+    supplierId: 4,
+    supplierName: "UTE",
+    creditKind: "bill",
+    creditDate: "2026-05-08",
+    dueDate: "2026-05-25",
+    totalAmount: 3600,
+    description: "Consumo y cargo fijo taller",
+    documentRef: "UTE 05/2026",
+    currencyCode: "UYU",
+    allocations: [
+      {
+        id: 203,
+        destinationType: "other",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Herramientas",
+        amount: 2200,
+        metadata: null
+      },
+      {
+        id: 204,
+        destinationType: "vehicle",
+        destinationActivityId: null,
+        destinationActivityCode: null,
+        destinationActivityDescription: null,
+        destinationLabel: "Micro SAH2222",
+        amount: 1400,
+        metadata: {
+          kilometers: 84500,
+          liters: null
+        }
+      }
+    ],
+    createdAt: "2026-05-08T16:00:00.000-03:00",
+    updatedAt: "2026-05-08T16:00:00.000-03:00"
+  }
+];
+
 const seedJournalEntries: NeonJournalEntry[] = [
   {
     id: 1,
@@ -337,43 +501,6 @@ const seedJournalEntries: NeonJournalEntry[] = [
     ],
     createdAt: "2026-05-06T12:00:00.000-03:00",
     updatedAt: "2026-05-06T12:00:00.000-03:00"
-  },
-  {
-    id: 3,
-    tenantId: DEMO_TENANT.id,
-    companyKey: "empresa_negra",
-    movementType: "expense",
-    movementDate: "2026-05-04",
-    accountId: 5,
-    accountName: "Credito",
-    totalAmount: 3100,
-    description: "Materiales pantalla led",
-    providerName: "Insumos Display",
-    documentRef: null,
-    quantity: null,
-    unitLabel: null,
-    currencyCode: "UYU",
-    expenseKind: "operational",
-    creditCardLabel: "Visa Itau",
-    dueDate: "2026-05-20",
-    sourceType: "activity",
-    sourceActivityId: 2,
-    sourceActivityCode: "#15/2026",
-    sourceActivityDescription: "Pantalla led evento invierno",
-    allocations: [
-      {
-        id: 3,
-        destinationType: "activity",
-        destinationActivityId: 2,
-        destinationActivityCode: "#15/2026",
-        destinationActivityDescription: "Pantalla led evento invierno",
-        destinationLabel: null,
-        amount: 3100,
-        metadata: null
-      }
-    ],
-    createdAt: "2026-05-04T15:00:00.000-03:00",
-    updatedAt: "2026-05-04T15:00:00.000-03:00"
   },
   {
     id: 4,
@@ -485,43 +612,6 @@ const seedJournalEntries: NeonJournalEntry[] = [
     ],
     createdAt: "2026-05-09T12:00:00.000-03:00",
     updatedAt: "2026-05-09T12:00:00.000-03:00"
-  },
-  {
-    id: 7,
-    tenantId: DEMO_TENANT.id,
-    companyKey: "empresa_negra",
-    movementType: "expense",
-    movementDate: "2026-05-10",
-    accountId: 5,
-    accountName: "Credito",
-    totalAmount: 1500,
-    description: "Combustible movil promocional",
-    providerName: "Estacion America",
-    documentRef: null,
-    quantity: null,
-    unitLabel: null,
-    currencyCode: "UYU",
-    expenseKind: "operational",
-    creditCardLabel: "Master BBVA",
-    dueDate: "2026-05-22",
-    sourceType: "activity",
-    sourceActivityId: 5,
-    sourceActivityCode: "#18/2026",
-    sourceActivityDescription: "Movil promocional ruta",
-    allocations: [
-      {
-        id: 7,
-        destinationType: "activity",
-        destinationActivityId: 5,
-        destinationActivityCode: "#18/2026",
-        destinationActivityDescription: "Movil promocional ruta",
-        destinationLabel: null,
-        amount: 1500,
-        metadata: null
-      }
-    ],
-    createdAt: "2026-05-10T10:15:00.000-03:00",
-    updatedAt: "2026-05-10T10:15:00.000-03:00"
   },
   {
     id: 8,
@@ -683,46 +773,6 @@ const seedJournalEntries: NeonJournalEntry[] = [
     ],
     createdAt: "2026-05-07T19:00:00.000-03:00",
     updatedAt: "2026-05-07T19:00:00.000-03:00"
-  },
-  {
-    id: 12,
-    tenantId: DEMO_TENANT.id,
-    companyKey: "empresa_verde",
-    movementType: "expense",
-    movementDate: "2026-05-08",
-    accountId: 5,
-    accountName: "Credito",
-    totalAmount: 3600,
-    description: "Cubiertas y service Micro",
-    providerName: "Gomeria del Puerto",
-    documentRef: null,
-    quantity: null,
-    unitLabel: null,
-    currencyCode: "UYU",
-    expenseKind: "operational",
-    creditCardLabel: "Porto Seguro",
-    dueDate: "2026-05-25",
-    sourceType: "independent",
-    sourceActivityId: null,
-    sourceActivityCode: null,
-    sourceActivityDescription: null,
-    allocations: [
-      {
-        id: 13,
-        destinationType: "vehicle",
-        destinationActivityId: null,
-        destinationActivityCode: null,
-        destinationActivityDescription: null,
-        destinationLabel: "Micro SAH2222",
-        amount: 3600,
-        metadata: {
-          kilometers: 84500,
-          liters: null
-        }
-      }
-    ],
-    createdAt: "2026-05-08T16:00:00.000-03:00",
-    updatedAt: "2026-05-08T16:00:00.000-03:00"
   },
   {
     id: 13,
@@ -911,9 +961,11 @@ const seedJournalEntries: NeonJournalEntry[] = [
   }
 ];
 let clientsStore = clone(seedClients);
+let suppliersStore = clone(seedSuppliers);
 let accountsStore = clone(seedAccounts);
 let categoriesStore = clone(seedCategories);
 let activitiesStore = clone(seedActivities).map(normalizeActivity);
+let creditEntriesStore = clone(seedCreditEntries);
 let journalStore = clone(seedJournalEntries).map(normalizeJournalEntry);
 
 function clone<T>(value: T): T {
@@ -954,6 +1006,7 @@ function normalizeJournalEntry(entry: NeonJournalEntry): NeonJournalEntry {
 
   return {
     ...entry,
+    providerId: typeof entry.providerId === "number" ? entry.providerId : null,
     companyKey: inferredCompanyKey,
     transferAccountId: entry.transferAccountId || null,
     transferAccountName: entry.transferAccountName || null
@@ -971,9 +1024,11 @@ function persistStores() {
 
   const snapshot = {
     clients: clientsStore,
+    suppliers: suppliersStore,
     accounts: accountsStore,
     categories: categoriesStore,
     activities: activitiesStore,
+    creditEntries: creditEntriesStore,
     journal: journalStore
   };
 
@@ -993,20 +1048,25 @@ function restoreStores() {
   try {
     const snapshot = JSON.parse(rawSnapshot) as Partial<{
       clients: NeonClient[];
+      suppliers: NeonSupplier[];
       accounts: MutableAccount[];
       categories: NeonCategory[];
       activities: MutableActivity[];
+      creditEntries: MutableCreditEntry[];
       journal: NeonJournalEntry[];
     }>;
 
     if (
       Array.isArray(snapshot.clients) &&
+      Array.isArray(snapshot.suppliers) &&
       Array.isArray(snapshot.accounts) &&
       Array.isArray(snapshot.categories) &&
       Array.isArray(snapshot.activities) &&
+      Array.isArray(snapshot.creditEntries) &&
       Array.isArray(snapshot.journal)
     ) {
       clientsStore = clone(snapshot.clients);
+      suppliersStore = clone(snapshot.suppliers);
       accountsStore = clone(snapshot.accounts).map((account) => ({
         id: account.id,
         tenantId: account.tenantId,
@@ -1019,6 +1079,7 @@ function restoreStores() {
       }));
       categoriesStore = clone(snapshot.categories);
       activitiesStore = clone(snapshot.activities).map(normalizeActivity);
+      creditEntriesStore = clone(snapshot.creditEntries);
       journalStore = clone(snapshot.journal).map(normalizeJournalEntry);
       persistStores();
     }
@@ -1148,6 +1209,15 @@ function buildAllocations(
   });
 }
 
+function getSupplier(supplierId: number) {
+  const supplier = suppliersStore.find((item) => item.id === supplierId);
+  if (!supplier) {
+    throw new Error("Proveedor no encontrado en demo");
+  }
+
+  return supplier;
+}
+
 function deriveAccounts(): NeonAccount[] {
   return accountsStore.map((account) => {
     const relatedEntries = journalStore.filter(
@@ -1206,6 +1276,49 @@ function deriveActivities(): NeonActivity[] {
       pendingAmount
     };
   });
+}
+
+function deriveCreditEntries(): NeonCreditEntry[] {
+  const settlementsBySupplier = new Map<number, number>();
+
+  for (const entry of journalStore
+    .filter((journalEntry) => journalEntry.movementType === "expense" && journalEntry.expenseKind === "credit_settlement")
+    .sort((left, right) => {
+      if (left.movementDate !== right.movementDate) {
+        return left.movementDate.localeCompare(right.movementDate);
+      }
+
+      return left.id - right.id;
+    })) {
+    if (!entry.providerId) {
+      continue;
+    }
+
+    settlementsBySupplier.set(entry.providerId, (settlementsBySupplier.get(entry.providerId) || 0) + entry.totalAmount);
+  }
+
+  return clone(creditEntriesStore)
+    .sort((left, right) => {
+      const leftDue = left.dueDate || left.creditDate;
+      const rightDue = right.dueDate || right.creditDate;
+
+      if (leftDue !== rightDue) {
+        return leftDue.localeCompare(rightDue);
+      }
+
+      return left.id - right.id;
+    })
+    .map((entry) => {
+      let remainingSettlement = settlementsBySupplier.get(entry.supplierId) || 0;
+      const paidAmount = Math.min(remainingSettlement, entry.totalAmount);
+      const pendingAmount = Math.max(Number((entry.totalAmount - paidAmount).toFixed(2)), 0);
+      settlementsBySupplier.set(entry.supplierId, Number((remainingSettlement - paidAmount).toFixed(2)));
+
+      return {
+        ...entry,
+        pendingAmount
+      };
+    });
 }
 
 function deriveExpenses(): NeonExpense[] {
@@ -1319,15 +1432,24 @@ export async function listNeonClients(): Promise<NeonClient[]> {
   return clone(clientsStore).sort((left, right) => left.name.localeCompare(right.name));
 }
 
+export async function listNeonSuppliers(): Promise<NeonSupplier[]> {
+  return clone(suppliersStore).sort((left, right) => {
+    if (left.createdAt !== right.createdAt) {
+      return right.createdAt.localeCompare(left.createdAt);
+    }
+
+    return right.id - left.id;
+  });
+}
+
 export async function listNeonAccounts(): Promise<NeonAccount[]> {
   return clone(deriveAccounts());
 }
 
 export async function createNeonAccount(input: {
   name: string;
-  accountType: "cash" | "bank" | "credit";
+  accountType: "cash" | "bank";
   openingBalance?: number;
-  dueDate?: string;
 }) {
   const timestamp = nowIso();
   const account: MutableAccount = {
@@ -1336,7 +1458,7 @@ export async function createNeonAccount(input: {
     name: input.name.trim(),
     accountType: input.accountType,
     openingBalance: Number((input.openingBalance || 0).toFixed(2)),
-    dueDate: input.accountType === "credit" ? input.dueDate || null : null,
+    dueDate: null,
     createdAt: timestamp,
     updatedAt: timestamp
   };
@@ -1350,9 +1472,8 @@ export async function updateNeonAccount(
   accountId: number,
   input: {
     name: string;
-    accountType: "cash" | "bank" | "credit";
+    accountType: "cash" | "bank";
     openingBalance?: number;
-    dueDate?: string;
   }
 ) {
   const accountIndex = accountsStore.findIndex((account) => account.id === accountId);
@@ -1366,7 +1487,7 @@ export async function updateNeonAccount(
     name: input.name.trim(),
     accountType: input.accountType,
     openingBalance: Number((input.openingBalance || 0).toFixed(2)),
-    dueDate: input.accountType === "credit" ? input.dueDate || null : null,
+    dueDate: null,
     updatedAt: nowIso()
   };
 
@@ -1404,6 +1525,41 @@ export async function createNeonClient(input: { name: string; phone?: string; no
   clientsStore.push(client);
   persistStores();
   return clone(client);
+}
+
+export async function createNeonSupplier(input: {
+  name: string;
+  address?: string;
+  phone?: string;
+  notes?: string;
+  isGeneric?: boolean;
+}) {
+  const normalizedName = input.name.trim();
+  if (!normalizedName) {
+    throw new Error("Falta el nombre del proveedor");
+  }
+
+  const existingSupplier = suppliersStore.find((supplier) => supplier.name.trim().toLowerCase() === normalizedName.toLowerCase());
+  if (existingSupplier) {
+    throw new Error("Ese proveedor ya existe");
+  }
+
+  const timestamp = nowIso();
+  const supplier: NeonSupplier = {
+    id: nextId(suppliersStore),
+    tenantId: DEMO_TENANT.id,
+    name: normalizedName,
+    address: input.address?.trim() || null,
+    phone: input.phone?.trim() || null,
+    notes: input.notes?.trim() || null,
+    isGeneric: Boolean(input.isGeneric),
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  suppliersStore.push(supplier);
+  persistStores();
+  return clone(supplier);
 }
 
 export async function createNeonCategory(input: {
@@ -1447,6 +1603,16 @@ export async function getNeonActivity(activityId: number): Promise<NeonActivity>
   return clone(activity);
 }
 
+export async function listNeonCreditEntries(): Promise<NeonCreditEntry[]> {
+  return clone(deriveCreditEntries()).sort((left, right) => {
+    if (left.createdAt !== right.createdAt) {
+      return right.createdAt.localeCompare(left.createdAt);
+    }
+
+    return right.id - left.id;
+  });
+}
+
 export async function listNeonExpenses(): Promise<NeonExpense[]> {
   return clone(deriveExpenses());
 }
@@ -1461,6 +1627,46 @@ export async function listNeonJournal(params?: {
   search?: string;
 }): Promise<NeonJournalEntry[]> {
   return clone(filterJournalEntries(journalStore, params));
+}
+
+export async function createNeonCreditEntry(input: CreditEntryCreationInput) {
+  const supplier = getSupplier(input.supplierId);
+  const timestamp = nowIso();
+  const allocations = buildAllocations({ allocations: input.allocations }, input.totalAmount);
+  const primaryActivityAllocation =
+    allocations.length === 1 && allocations[0].destinationType === "activity" ? allocations[0] : null;
+  const relatedActivityCompanyKey =
+    primaryActivityAllocation?.destinationActivityId
+      ? getActivityCompanyKey(primaryActivityAllocation.destinationActivityId)
+      : allocations.find((allocation) => allocation.destinationType === "activity" && allocation.destinationActivityId)
+        ?.destinationActivityId
+        ? getActivityCompanyKey(
+            allocations.find((allocation) => allocation.destinationType === "activity" && allocation.destinationActivityId)!
+              .destinationActivityId!
+          )
+        : null;
+
+  const entry: MutableCreditEntry = {
+    id: nextId(creditEntriesStore),
+    tenantId: DEMO_TENANT.id,
+    companyKey: relatedActivityCompanyKey || input.companyKey || "empresa_verde",
+    supplierId: supplier.id,
+    supplierName: supplier.name,
+    creditKind: input.creditKind,
+    creditDate: input.creditDate,
+    dueDate: input.dueDate,
+    totalAmount: Number(input.totalAmount.toFixed(2)),
+    description: input.description?.trim() || null,
+    documentRef: input.documentRef?.trim() || null,
+    currencyCode: input.currencyCode || "UYU",
+    allocations,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  creditEntriesStore.unshift(entry);
+  persistStores();
+  return clone(deriveCreditEntries().find((item) => item.id === entry.id)!);
 }
 
 export async function createNeonJournalEntry(input: JournalCreationInput) {
@@ -1479,6 +1685,7 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
           )
         : null;
 
+  const supplier = typeof input.providerId === "number" ? getSupplier(input.providerId) : null;
   const entry: NeonJournalEntry = {
     id: nextId(journalStore),
     tenantId: DEMO_TENANT.id,
@@ -1492,7 +1699,8 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
       input.movementType === "transfer" && input.transferAccountId ? getAccountName(input.transferAccountId) : null,
     totalAmount: Number(input.totalAmount.toFixed(2)),
     description: input.description?.trim() || null,
-    providerName: input.providerName?.trim() || null,
+    providerId: supplier?.id || null,
+    providerName: supplier?.name || input.providerName?.trim() || null,
     documentRef: input.documentRef?.trim() || null,
     quantity: input.quantity ?? null,
     unitLabel: input.unitLabel?.trim() || null,
@@ -1527,15 +1735,19 @@ export async function deleteNeonJournalEntry(entryId: number) {
 export async function resetNeonWorkspace(mode: "demo" | "empty") {
   if (mode === "demo") {
     clientsStore = clone(seedClients);
+    suppliersStore = clone(seedSuppliers);
     accountsStore = clone(seedAccounts);
     categoriesStore = clone(seedCategories);
     activitiesStore = clone(seedActivities).map(normalizeActivity);
+    creditEntriesStore = clone(seedCreditEntries);
     journalStore = clone(seedJournalEntries).map(normalizeJournalEntry);
   } else {
     clientsStore = [];
+    suppliersStore = clone(seedSuppliers.filter((supplier) => supplier.isGeneric));
     accountsStore = [];
     categoriesStore = clone(seedCategories);
     activitiesStore = [];
+    creditEntriesStore = [];
     journalStore = [];
   }
 

@@ -27,6 +27,18 @@ export type NeonClient = {
   updatedAt: string;
 };
 
+export type NeonSupplier = {
+  id: number;
+  tenantId: number;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  notes: string | null;
+  isGeneric: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type NeonAccount = {
   id: number;
   tenantId: number;
@@ -72,6 +84,7 @@ export type NeonJournalEntry = {
   transferAccountName?: string | null;
   totalAmount: number;
   description: string | null;
+  providerId?: number | null;
   providerName: string | null;
   documentRef: string | null;
   quantity: number | null;
@@ -84,6 +97,25 @@ export type NeonJournalEntry = {
   sourceActivityId: number | null;
   sourceActivityCode: string | null;
   sourceActivityDescription: string | null;
+  allocations: NeonJournalAllocation[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type NeonCreditEntry = {
+  id: number;
+  tenantId: number;
+  companyKey: "empresa_verde" | "empresa_negra" | "empresa_c";
+  supplierId: number;
+  supplierName: string;
+  creditKind: "purchase" | "loan" | "bill";
+  creditDate: string;
+  dueDate: string;
+  totalAmount: number;
+  pendingAmount: number;
+  description: string | null;
+  documentRef: string | null;
+  currencyCode: "UYU" | "USD";
   allocations: NeonJournalAllocation[];
   createdAt: string;
   updatedAt: string;
@@ -165,6 +197,14 @@ export type NeonClientsResponse = {
   };
 };
 
+export type NeonSuppliersResponse = {
+  items: NeonSupplier[];
+  meta: {
+    tenantId: number;
+    count: number;
+  };
+};
+
 export type NeonAccountsResponse = {
   items: NeonAccount[];
   meta: {
@@ -196,6 +236,14 @@ export type NeonActivitiesResponse = {
     tenantId: number;
     count: number;
     limit: number;
+  };
+};
+
+export type NeonCreditEntriesResponse = {
+  items: NeonCreditEntry[];
+  meta: {
+    tenantId: number;
+    count: number;
   };
 };
 

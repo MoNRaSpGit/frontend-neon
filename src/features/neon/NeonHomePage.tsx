@@ -4,26 +4,31 @@ import {
   createNeonAccount,
   createNeonActivity,
   createNeonClient,
+  createNeonCreditEntry,
   createNeonJournalEntry,
+  createNeonSupplier,
   deleteNeonAccount,
   deleteNeonJournalEntry,
   updateNeonActivity,
   updateNeonAccount,
   listNeonAccounts,
   listNeonActivities,
+  listNeonCreditEntries,
   listNeonClients,
   listNeonJournal,
+  listNeonSuppliers,
   resetNeonWorkspace
 } from "./neon.client";
 import { getTodayDateInputValue, toTitleCase } from "./neon.home.helpers";
 import { pageStyle } from "./neon.home.styles";
-import { NeonAccount, NeonActivity, NeonClient, NeonJournalAllocationInput, NeonJournalEntry } from "./neon.types";
+import { NeonAccount, NeonActivity, NeonClient, NeonCreditEntry, NeonJournalAllocationInput, NeonJournalEntry, NeonSupplier } from "./neon.types";
 import { buildDashboardSummary } from "./neon.v2.dashboard";
 import { createEmptyJournalAllocation } from "./neon.v2.journal";
 import { NeonV2HomeSections } from "./neon.v2.sections";
 import {
   AccountFormState,
   ActivityFormState,
+  CreditFormState,
   CostCenterFormState,
   ClientFormState,
   DebtReportRange,
@@ -37,7 +42,8 @@ import {
   NeonWorkspaceView,
   PendingDeleteJournalState,
   PendingResetWorkspaceState,
-  ReportPeriodFilter
+  ReportPeriodFilter,
+  SupplierFormState
 } from "./neon.v2.types";
 
 const ACTIVE_COMPANY_STORAGE_KEY = "neon-active-company-v3";
@@ -155,12 +161,16 @@ function getInitialCostCenters(): NeonCostCenterRecord[] {
 export function NeonHomePage() {
   const [loading, setLoading] = useState(true);
   const [savingClient, setSavingClient] = useState(false);
+  const [savingSupplier, setSavingSupplier] = useState(false);
   const [savingAccount, setSavingAccount] = useState(false);
   const [savingActivity, setSavingActivity] = useState(false);
+  const [savingCreditEntry, setSavingCreditEntry] = useState(false);
   const [savingJournal, setSavingJournal] = useState(false);
   const [clients, setClients] = useState<NeonClient[]>([]);
+  const [suppliers, setSuppliers] = useState<NeonSupplier[]>([]);
   const [accounts, setAccounts] = useState<NeonAccount[]>([]);
   const [activities, setActivities] = useState<NeonActivity[]>([]);
+  const [creditEntries, setCreditEntries] = useState<NeonCreditEntry[]>([]);
   const [journalEntries, setJournalEntries] = useState<NeonJournalEntry[]>([]);
   const [debtReportRange, setDebtReportRange] = useState<DebtReportRange>("all");
   const [reportPeriodFilter, setReportPeriodFilter] = useState<ReportPeriodFilter>({
@@ -184,11 +194,16 @@ export function NeonHomePage() {
     phone: "",
     notes: ""
   });
+  const [supplierForm, setSupplierForm] = useState<SupplierFormState>({
+    name: "",
+    address: "",
+    phone: "",
+    notes: ""
+  });
   const [accountForm, setAccountForm] = useState<AccountFormState>({
     name: "",
     accountType: "cash",
-    openingBalance: "",
-    dueDate: ""
+    openingBalance: ""
   });
   const [activityForm, setActivityForm] = useState<ActivityFormState>({
     activityDate: getTodayDateInputValue(),
@@ -208,13 +223,23 @@ export function NeonHomePage() {
     totalAmount: "",
     description: "",
     expenseKind: "operational",
-    providerName: "",
+    expenseFlow: "direct",
+    providerId: "",
     documentRef: "",
     quantity: "",
     unitLabel: "",
     currencyCode: "UYU",
-    creditCardLabel: "",
-    dueDate: "",
+    allocations: [createEmptyJournalAllocation()]
+  });
+  const [creditForm, setCreditForm] = useState<CreditFormState>({
+    creditKind: "purchase",
+    creditDate: getTodayDateInputValue(),
+    dueDate: getTodayDateInputValue(),
+    supplierId: "",
+    totalAmount: "",
+    description: "",
+    documentRef: "",
+    currencyCode: "UYU",
     allocations: [createEmptyJournalAllocation()]
   });
   const [costCenterForm, setCostCenterForm] = useState<CostCenterFormState>({
@@ -228,22 +253,32 @@ export function NeonHomePage() {
     setLoading(true);
 
     try {
-      const [nextClients, nextAccounts, nextActivities, nextJournalEntries] = await Promise.all([
+      const [nextClients, nextSuppliers, nextAccounts, nextActivities, nextCreditEntries, nextJournalEntries] = await Promise.all([
         listNeonClients(),
+        listNeonSuppliers(),
         listNeonAccounts(),
         listNeonActivities(),
+        listNeonCreditEntries(),
         listNeonJournal({ limit: 100 })
       ]);
 
       setClients(nextClients);
+      setSuppliers(nextSuppliers);
       setAccounts(nextAccounts);
       setActivities(nextActivities);
+      setCreditEntries(nextCreditEntries);
       setJournalEntries(nextJournalEntries);
 
       const defaultAccountId = nextAccounts[0] ? String(nextAccounts[0].id) : "";
+      const defaultSupplierId = nextSuppliers[0] ? String(nextSuppliers[0].id) : "";
       setJournalForm((current) => ({
         ...current,
-        accountId: current.accountId || defaultAccountId
+        accountId: current.accountId || defaultAccountId,
+        providerId: current.providerId || defaultSupplierId
+      }));
+      setCreditForm((current) => ({
+        ...current,
+        supplierId: current.supplierId || defaultSupplierId
       }));
       setSelectedAccountId((current) => (current && nextAccounts.some((account) => account.id === current) ? current : nextAccounts[0]?.id || null));
     } catch (error) {
@@ -301,6 +336,36 @@ export function NeonHomePage() {
     }
   }
 
+  async function handleCreateSupplier(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const name = toTitleCase(supplierForm.name);
+    if (!name) {
+      toast.error("Falta el nombre del proveedor");
+      return;
+    }
+
+    setSavingSupplier(true);
+    try {
+      const createdSupplier = await createNeonSupplier({
+        name,
+        address: supplierForm.address.trim() || undefined,
+        phone: supplierForm.phone.trim() || undefined,
+        notes: supplierForm.notes.trim() || undefined
+      });
+
+      setSuppliers((current) => [createdSupplier, ...current.filter((supplier) => supplier.id !== createdSupplier.id)]);
+      setSupplierForm({ name: "", address: "", phone: "", notes: "" });
+      setJournalForm((current) => ({ ...current, providerId: String(createdSupplier.id) }));
+      setCreditForm((current) => ({ ...current, supplierId: String(createdSupplier.id) }));
+      toast.success("Proveedor guardado", { autoClose: 2400 });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el proveedor");
+    } finally {
+      setSavingSupplier(false);
+    }
+  }
+
   async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -317,25 +382,18 @@ export function NeonHomePage() {
       return;
     }
 
-    if (accountForm.accountType === "credit" && !accountForm.dueDate) {
-      toast.error("Falta la fecha limite de pago para la cuenta de credito");
-      return;
-    }
-
     setSavingAccount(true);
     try {
       const savedAccount = pendingEditAccount
         ? await updateNeonAccount(pendingEditAccount.id, {
             name,
             accountType: accountForm.accountType,
-            openingBalance,
-            dueDate: accountForm.accountType === "credit" ? accountForm.dueDate : undefined
+            openingBalance
           })
         : await createNeonAccount({
             name,
             accountType: accountForm.accountType,
-            openingBalance,
-            dueDate: accountForm.accountType === "credit" ? accountForm.dueDate : undefined
+            openingBalance
           });
 
       setAccounts((current) =>
@@ -343,7 +401,7 @@ export function NeonHomePage() {
           ? current.map((account) => (account.id === savedAccount.id ? savedAccount : account)).sort((left, right) => left.id - right.id)
           : [...current, savedAccount].sort((left, right) => left.id - right.id)
       );
-      setAccountForm({ name: "", accountType: "cash", openingBalance: "", dueDate: "" });
+      setAccountForm({ name: "", accountType: "cash", openingBalance: "" });
       setPendingEditAccount(null);
       setJournalForm((current) => ({
         ...current,
@@ -372,9 +430,8 @@ export function NeonHomePage() {
 
     setAccountForm({
       name: account.name,
-      accountType: account.accountType,
-      openingBalance: String(account.openingBalance),
-      dueDate: account.dueDate || ""
+      accountType: account.accountType === "bank" ? "bank" : "cash",
+      openingBalance: String(account.openingBalance)
     });
     setPendingEditAccount({ id: account.id });
   }
@@ -384,8 +441,7 @@ export function NeonHomePage() {
     setAccountForm({
       name: "",
       accountType: "cash",
-      openingBalance: "",
-      dueDate: ""
+      openingBalance: ""
     });
   }
 
@@ -541,15 +597,20 @@ export function NeonHomePage() {
     });
   }
 
-  async function handleCreateJournalEntry(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateCreditEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!journalForm.accountId) {
-      toast.error("Campo faltante: Cuenta. Elegi desde que cuenta sale o entra el movimiento.");
+    if (!creditForm.supplierId) {
+      toast.error("Campo faltante: Proveedor. Elegi a quien corresponde el pendiente.");
       return;
     }
 
-    const normalizedAllocations: NeonJournalAllocationInput[] = journalForm.allocations
+    if (!creditForm.dueDate) {
+      toast.error("Campo faltante: Vencimiento. Indica cuando vence el pendiente.");
+      return;
+    }
+
+    const normalizedAllocations: NeonJournalAllocationInput[] = creditForm.allocations
       .filter(
         (
           allocation
@@ -586,7 +647,7 @@ export function NeonHomePage() {
           allocation.destinationType === "custom") &&
         !allocation.destinationLabel
       ) {
-        toast.error("Campo faltante: Etiqueta en linea de asignacion. Completa a que corresponde esa linea.");
+        toast.error("Campo faltante: Etiqueta en linea de asignacion. Completa a que sector va ese gasto.");
         return;
       }
 
@@ -594,14 +655,127 @@ export function NeonHomePage() {
         toast.error("Campo faltante: Tipo de centro de costo. Elegi el tipo personalizado correspondiente.");
         return;
       }
+    }
 
-      if (journalForm.movementType === "income" && allocation.destinationType === "activity" && allocation.destinationActivityId) {
-        const relatedActivity = activities.find((activity) => activity.id === allocation.destinationActivityId);
-        if (relatedActivity && allocation.amount > relatedActivity.pendingAmount) {
-          toast.error(
-            `Campo inconsistente: Cobro mayor al pendiente. La actividad ${relatedActivity.activityNumber}/${relatedActivity.activityYear} tiene pendiente ${relatedActivity.pendingAmount.toFixed(2)}.`
-          );
+    const totalAmount = Number(creditForm.totalAmount);
+    const allocationTotal = normalizedAllocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      toast.error("Campo invalido: Importe total. Ingresa un numero mayor a 0.");
+      return;
+    }
+
+    if (normalizedAllocations.length === 0) {
+      toast.error("Campo faltante: Destino del gasto. Agrega al menos una linea.");
+      return;
+    }
+
+    if (Math.round(allocationTotal * 100) !== Math.round(totalAmount * 100)) {
+      toast.error("Campos inconsistentes: Importe total y lineas de asignacion. La suma debe coincidir exactamente.");
+      return;
+    }
+
+    setSavingCreditEntry(true);
+    try {
+      const createdEntry = await createNeonCreditEntry({
+        companyKey: "empresa_verde",
+        supplierId: Number(creditForm.supplierId),
+        creditKind: creditForm.creditKind,
+        creditDate: creditForm.creditDate,
+        dueDate: creditForm.dueDate,
+        totalAmount,
+        description: creditForm.description.trim() || undefined,
+        documentRef: creditForm.documentRef.trim() || undefined,
+        currencyCode: creditForm.currencyCode,
+        allocations: normalizedAllocations
+      });
+
+      setCreditEntries((current) => [createdEntry, ...current]);
+      setCreditForm({
+        creditKind: "purchase",
+        creditDate: getTodayDateInputValue(),
+        dueDate: getTodayDateInputValue(),
+        supplierId: creditForm.supplierId,
+        totalAmount: "",
+        description: "",
+        documentRef: "",
+        currencyCode: "UYU",
+        allocations: [createEmptyJournalAllocation()]
+      });
+      await loadHomeData();
+      toast.success("Pendiente guardado", { autoClose: 2400 });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el pendiente");
+    } finally {
+      setSavingCreditEntry(false);
+    }
+  }
+
+  async function handleCreateJournalEntry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!journalForm.accountId) {
+      toast.error("Campo faltante: Cuenta. Elegi desde que cuenta sale o entra el movimiento.");
+      return;
+    }
+
+    const requiresAllocations = journalForm.movementType !== "transfer" && !(journalForm.movementType === "expense" && journalForm.expenseFlow === "credit_payment");
+    const normalizedAllocations: NeonJournalAllocationInput[] = requiresAllocations
+      ? journalForm.allocations
+          .filter(
+            (
+              allocation
+            ): allocation is typeof allocation & {
+              destinationType: NeonJournalAllocationInput["destinationType"];
+            } => Boolean(allocation.destinationType && allocation.amount.trim())
+          )
+          .map((allocation) => ({
+            destinationType: allocation.destinationType,
+            destinationActivityId: allocation.destinationActivityId ? Number(allocation.destinationActivityId) : undefined,
+            destinationLabel: allocation.destinationLabel.trim() || undefined,
+            customTypeLabel: allocation.customTypeLabel.trim() || undefined,
+            amount: Number(allocation.amount),
+            kilometers: allocation.kilometers ? Number(allocation.kilometers) : undefined,
+            liters: allocation.liters ? Number(allocation.liters) : undefined
+          }))
+      : [];
+
+    if (requiresAllocations) {
+      for (const allocation of normalizedAllocations) {
+        if (!Number.isFinite(allocation.amount) || allocation.amount <= 0) {
+          toast.error("Campo invalido: Linea de asignacion. Cada linea debe tener un monto mayor a 0.");
           return;
+        }
+
+        if (allocation.destinationType === "activity" && !allocation.destinationActivityId) {
+          toast.error("Campo faltante: Actividad en linea de asignacion. Elegi la actividad correspondiente.");
+          return;
+        }
+
+        if (
+          (allocation.destinationType === "vehicle" ||
+            allocation.destinationType === "personal" ||
+            allocation.destinationType === "rental" ||
+            allocation.destinationType === "other" ||
+            allocation.destinationType === "custom") &&
+          !allocation.destinationLabel
+        ) {
+          toast.error("Campo faltante: Etiqueta en linea de asignacion. Completa a que corresponde esa linea.");
+          return;
+        }
+
+        if (allocation.destinationType === "custom" && !allocation.customTypeLabel) {
+          toast.error("Campo faltante: Tipo de centro de costo. Elegi el tipo personalizado correspondiente.");
+          return;
+        }
+
+        if (journalForm.movementType === "income" && allocation.destinationType === "activity" && allocation.destinationActivityId) {
+          const relatedActivity = activities.find((activity) => activity.id === allocation.destinationActivityId);
+          if (relatedActivity && allocation.amount > relatedActivity.pendingAmount) {
+            toast.error(
+              `Campo inconsistente: Cobro mayor al pendiente. La actividad ${relatedActivity.activityNumber}/${relatedActivity.activityYear} tiene pendiente ${relatedActivity.pendingAmount.toFixed(2)}.`
+            );
+            return;
+          }
         }
       }
     }
@@ -636,10 +810,32 @@ export function NeonHomePage() {
         return;
       }
 
-      if (!journalForm.providerName.trim()) {
-        toast.error("Campo faltante: Proveedor. Escribi a quien le hiciste el gasto.");
+      if (!journalForm.providerId) {
+        toast.error("Campo faltante: Proveedor. Elegi un proveedor registrado.");
         return;
       }
+
+      if (journalForm.expenseFlow === "credit_payment") {
+        const selectedSupplierId = Number(journalForm.providerId);
+        const supplierPendingAmount = creditEntries
+          .filter((entry) => entry.supplierId === selectedSupplierId)
+          .reduce((sum, entry) => sum + entry.pendingAmount, 0);
+
+        if (supplierPendingAmount <= 0) {
+          toast.error("Ese proveedor no tiene pendientes para cancelar.");
+          return;
+        }
+
+        if (totalAmount > supplierPendingAmount) {
+          toast.error(`El pago supera el pendiente abierto para ese proveedor (${supplierPendingAmount.toFixed(2)}).`);
+          return;
+        }
+      }
+    }
+
+    if (requiresAllocations && normalizedAllocations.length === 0) {
+      toast.error("Campo faltante: Destino del gasto. Agrega al menos una linea.");
+      return;
     }
 
     if (normalizedAllocations.length > 0) {
@@ -659,18 +855,25 @@ export function NeonHomePage() {
         transferAccountId: journalForm.movementType === "transfer" ? Number(journalForm.transferAccountId) : undefined,
         totalAmount,
         description: journalForm.description.trim() || undefined,
-        expenseKind: journalForm.movementType === "expense" ? "operational" : undefined,
-        providerName:
+        expenseKind:
           journalForm.movementType === "expense"
-            ? journalForm.providerName.trim() || undefined
+            ? journalForm.expenseFlow === "credit_payment"
+              ? "credit_settlement"
+              : "operational"
             : undefined,
+        providerId: journalForm.movementType === "expense" ? Number(journalForm.providerId) : undefined,
         documentRef: undefined,
         quantity: undefined,
         unitLabel: undefined,
         currencyCode: journalForm.movementType === "expense" ? journalForm.currencyCode || undefined : undefined,
         creditCardLabel: undefined,
         dueDate: undefined,
-        allocations: journalForm.movementType === "transfer" ? undefined : normalizedAllocations.length > 0 ? normalizedAllocations : undefined
+        allocations:
+          journalForm.movementType === "transfer" || journalForm.expenseFlow === "credit_payment"
+            ? undefined
+            : normalizedAllocations.length > 0
+              ? normalizedAllocations
+              : undefined
       });
 
       setJournalEntries((current) => [createdEntry, ...current]);
@@ -682,13 +885,12 @@ export function NeonHomePage() {
         transferAccountId: "",
         description: "",
         expenseKind: "operational",
-        providerName: "",
+        expenseFlow: "direct",
+        providerId: "",
         documentRef: "",
         quantity: "",
         unitLabel: "",
         currencyCode: "UYU",
-        creditCardLabel: "",
-        dueDate: "",
         allocations: [createEmptyJournalAllocation()]
       }));
       toast.success("Movimiento guardado", { autoClose: 2400 });
@@ -971,8 +1173,8 @@ export function NeonHomePage() {
   }
 
   const dashboard = useMemo(() => {
-    return buildDashboardSummary(accounts, activities, journalEntries, debtReportRange, reportPeriodFilter);
-  }, [accounts, activities, journalEntries, debtReportRange, reportPeriodFilter]);
+    return buildDashboardSummary(accounts, activities, journalEntries, creditEntries, debtReportRange, reportPeriodFilter);
+  }, [accounts, activities, journalEntries, creditEntries, debtReportRange, reportPeriodFilter]);
 
   const journalAllocationTotal = useMemo(
     () =>
@@ -988,20 +1190,28 @@ export function NeonHomePage() {
       <NeonV2HomeSections
         loading={loading}
         savingClient={savingClient}
+        savingSupplier={savingSupplier}
         savingAccount={savingAccount}
         savingActivity={savingActivity}
+        savingCreditEntry={savingCreditEntry}
         savingJournal={savingJournal}
         clients={clients}
+        suppliers={suppliers}
         accounts={accounts}
         activities={activities}
+        creditEntries={creditEntries}
         journalEntries={journalEntries}
         costCenters={costCenters}
         clientForm={clientForm}
         setClientForm={setClientForm}
+        supplierForm={supplierForm}
+        setSupplierForm={setSupplierForm}
         accountForm={accountForm}
         setAccountForm={setAccountForm}
         activityForm={activityForm}
         setActivityForm={setActivityForm}
+        creditForm={creditForm}
+        setCreditForm={setCreditForm}
         journalForm={journalForm}
         setJournalForm={setJournalForm}
         costCenterForm={costCenterForm}
@@ -1026,6 +1236,7 @@ export function NeonHomePage() {
         journalAllocationTotal={journalAllocationTotal}
         dashboard={dashboard}
         onCreateClient={handleCreateClient}
+        onCreateSupplier={handleCreateSupplier}
         onCreateAccount={handleCreateAccount}
         onEditAccount={handleEditAccount}
         onCancelAccountEdit={handleCancelAccountEdit}
@@ -1035,6 +1246,7 @@ export function NeonHomePage() {
         onCreateActivity={handleCreateActivity}
         onStartActivityEdit={handleStartActivityEdit}
         onCancelActivityEdit={handleCancelActivityEdit}
+        onCreateCreditEntry={handleCreateCreditEntry}
         onCreateJournalEntry={handleCreateJournalEntry}
         onCreateCostCenter={handleCreateCostCenter}
         onEditCostCenter={handleEditCostCenter}

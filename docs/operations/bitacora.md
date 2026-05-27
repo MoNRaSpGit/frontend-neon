@@ -18,6 +18,90 @@ Aca corresponde anotar:
 
 `neon` sigue en estado de validacion funcional con cliente.
 
+## Corte 2026-05-27 - proveedores y creditos separados del diario
+
+En este corte se aplico el cambio de criterio pedido por cliente para separar mejor:
+
+- el alta del proveedor
+- la carga de compras o recibos pendientes
+- el pago real desde caja o banco
+
+### Proveedores
+
+Quedo agregado:
+
+- ficha de `proveedores`
+- campos de `direccion`, `telefono` y `notas`
+- proveedor fijo `Proveedor generico`
+
+Regla implementada:
+
+- ya no se carga proveedor a mano libre en salidas nuevas
+- diario y creditos usan un proveedor registrado
+
+### Creditos
+
+Quedo agregado un modulo `Creditos`.
+
+Permite cargar:
+
+- `compras`
+- `recibos`
+- `prestamos`
+
+Y en cada pendiente definir:
+
+- proveedor
+- fecha
+- vencimiento
+- importe
+- documento o detalle
+- a que sector va cada gasto
+
+Regla implementada:
+
+- el destino del gasto se define al crear el pendiente
+- cuando despues se paga desde diario, ya no se vuelve a pedir centro de costo
+
+### Diario
+
+Se ajusto el flujo de salidas.
+
+Regla actual:
+
+- `Diario` usa solo `Caja` y `Bancos` para mover plata real
+- si el gasto es directo, sigue pidiendo proveedor y asignacion
+- si el gasto es `pago de pendiente`, pide proveedor registrado e importe
+- el pago se aplica contra pendientes del proveedor desde el mas viejo al mas nuevo
+
+### Reportes
+
+La deuda pendiente dejo de leerse por tarjeta y paso a leerse por proveedor.
+
+Ahora se ve mejor:
+
+- deuda pendiente unificada con filtros por vencimiento
+- detalle de monto original, pagado y pendiente
+- historial de pagos aplicados dentro del mismo pendiente
+
+### Ajustes finos posteriores del mismo corte
+
+Tambien quedo ajustado:
+
+- `Reportes` como ultima pestana del workspace
+- proveedores nuevos primero en su lista
+- pendientes nuevos primero en su lista
+
+### Validacion tecnica del corte 2026-05-27
+
+Validaciones ejecutadas:
+
+- `npm run typecheck` OK
+- `npm run lint` OK
+- `npm run test` OK
+- `npm run test:smoke` OK
+- `npm run build` OK
+
 ## Corte 2026-05-26 - ajustes finos en cuentas y credito
 
 En este corte se aplicaron cambios de UX puntuales pedidos durante la validacion del piloto.

@@ -12,7 +12,7 @@ import {
   getMonthEndDateInputValue,
   getTodayDateInputValue
 } from "./neon.home.helpers";
-import { NeonAccount, NeonActivity, NeonClient, NeonJournalEntry } from "./neon.types";
+import { NeonAccount, NeonActivity, NeonClient, NeonCreditEntry, NeonJournalEntry, NeonSupplier } from "./neon.types";
 import {
   buildReportStory,
   buildCommercialSummaryByCompany,
@@ -66,6 +66,7 @@ import {
 import {
   AccountFormState,
   ActivityFormState,
+  CreditFormState,
   CostCenterFormState,
   ClientFormState,
   DebtReportRange,
@@ -82,26 +83,35 @@ import {
   NeonWorkspaceView,
   ReportCenterScope,
   ReportPeriodFilter,
-  ReportPeriodRange
+  ReportPeriodRange,
+  SupplierFormState
 } from "./neon.v2.types";
 
 type HomeSectionsProps = {
   loading: boolean;
   savingClient: boolean;
+  savingSupplier: boolean;
   savingAccount: boolean;
   savingActivity: boolean;
+  savingCreditEntry: boolean;
   savingJournal: boolean;
   clients: NeonClient[];
+  suppliers: NeonSupplier[];
   accounts: NeonAccount[];
   activities: NeonActivity[];
+  creditEntries: NeonCreditEntry[];
   journalEntries: NeonJournalEntry[];
   costCenters: NeonCostCenterRecord[];
   clientForm: ClientFormState;
   setClientForm: Dispatch<SetStateAction<ClientFormState>>;
+  supplierForm: SupplierFormState;
+  setSupplierForm: Dispatch<SetStateAction<SupplierFormState>>;
   accountForm: AccountFormState;
   setAccountForm: Dispatch<SetStateAction<AccountFormState>>;
   activityForm: ActivityFormState;
   setActivityForm: Dispatch<SetStateAction<ActivityFormState>>;
+  creditForm: CreditFormState;
+  setCreditForm: Dispatch<SetStateAction<CreditFormState>>;
   journalForm: JournalFormState;
   setJournalForm: Dispatch<SetStateAction<JournalFormState>>;
   costCenterForm: CostCenterFormState;
@@ -126,6 +136,7 @@ type HomeSectionsProps = {
   journalAllocationTotal: number;
   dashboard: DashboardSummary;
   onCreateClient: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  onCreateSupplier: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateAccount: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onEditAccount: (accountId: number) => void;
   onCancelAccountEdit: () => void;
@@ -135,6 +146,7 @@ type HomeSectionsProps = {
   onCreateActivity: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onStartActivityEdit: (activityId: number) => void;
   onCancelActivityEdit: () => void;
+  onCreateCreditEntry: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateJournalEntry: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateCostCenter: (event: FormEvent<HTMLFormElement>) => void;
   onEditCostCenter: (centerId: string) => void;
@@ -192,6 +204,12 @@ function getMovementTypeLabel(movementType: NeonJournalEntry["movementType"]) {
   return "Traspaso";
 }
 
+function getCreditKindLabel(creditKind: NeonCreditEntry["creditKind"]) {
+  if (creditKind === "loan") return "Prestamo";
+  if (creditKind === "bill") return "Recibo";
+  return "Compra";
+}
+
 function getInvoiceSummary(activity: Pick<NeonActivity, "invoiceDate" | "invoicedAmount" | "invoiceCompanyKey">) {
   if (!activity.invoiceDate || activity.invoicedAmount === null || !activity.invoiceCompanyKey) {
     return null;
@@ -224,18 +242,13 @@ function getDueDateStatusLabel(dueDate: string | null) {
   return `Vence en ${daysUntilDue} dias`;
 }
 
-function getDueDateBadgeStyle() {
-  return {
-    color: "#C86F31"
-  };
-}
-
 const WORKSPACE_VIEWS: Array<{ value: NeonWorkspaceView; label: string; description: string }> = [
   { value: "journal", label: "Diario", description: "Cuentas y carga de movimientos" },
+  { value: "credits", label: "Creditos", description: "Proveedores y pendientes por pagar" },
   { value: "overview", label: "Resumen", description: "Metricas, deuda y panorama general" },
   { value: "activities", label: "Actividades", description: "Clientes y trabajos" },
-  { value: "reports", label: "Reportes", description: "Lectura financiera y operativa" },
-  { value: "centers", label: "Centros de costo", description: "Centros de costo de todo Neon" }
+  { value: "centers", label: "Centros de costo", description: "Centros de costo de todo Neon" },
+  { value: "reports", label: "Reportes", description: "Lectura financiera y operativa" }
 ];
 const COMPANY_OPTIONS: Array<{ value: NeonCompanyKey; label: string; hint: string }> = [
   { value: "empresa_verde", label: "Empresa A", hint: "Control comercial de facturacion y cobros" },
@@ -247,8 +260,7 @@ const SUGGESTED_ACCOUNT_PRESETS: Array<{ name: string; accountType: AccountFormS
   { name: "Caja $", accountType: "cash" },
   { name: "BROU $", accountType: "bank" },
   { name: "BBVA $", accountType: "bank" },
-  { name: "ITAU U$S", accountType: "bank" },
-  { name: "Credito", accountType: "credit" }
+  { name: "ITAU U$S", accountType: "bank" }
 ];
 const EXPANDABLE_LIST_STEP = 3;
 const ACTIVITY_STATUS_OPTIONS: Array<{
@@ -339,20 +351,28 @@ function matchesReportPeriod(entry: NeonJournalEntry, filter: ReportPeriodFilter
 export function NeonV2HomeSections({
   loading,
   savingClient,
+  savingSupplier,
   savingAccount,
   savingActivity,
+  savingCreditEntry,
   savingJournal,
   clients,
+  suppliers,
   accounts,
   activities,
+  creditEntries,
   journalEntries,
   costCenters,
   clientForm,
   setClientForm,
+  supplierForm,
+  setSupplierForm,
   accountForm,
   setAccountForm,
   activityForm,
   setActivityForm,
+  creditForm,
+  setCreditForm,
   journalForm,
   setJournalForm,
   costCenterForm,
@@ -377,6 +397,7 @@ export function NeonV2HomeSections({
   journalAllocationTotal,
   dashboard,
   onCreateClient,
+  onCreateSupplier,
   onCreateAccount,
   onEditAccount,
   onCancelAccountEdit,
@@ -386,6 +407,7 @@ export function NeonV2HomeSections({
   onCreateActivity,
   onStartActivityEdit,
   onCancelActivityEdit,
+  onCreateCreditEntry,
   onCreateJournalEntry,
   onCreateCostCenter,
   onEditCostCenter,
@@ -404,6 +426,7 @@ export function NeonV2HomeSections({
   const isOverviewView = activeView === "overview";
   const isCentersView = activeView === "centers";
   const isJournalView = activeView === "journal";
+  const isCreditsView = activeView === "credits";
   const isActivitiesView = activeView === "activities";
   const isReportsView = activeView === "reports";
   const activeCompanyLabel = getCompanyLabel(activeCompany);
@@ -436,6 +459,32 @@ export function NeonV2HomeSections({
   const displayedJournalTotalAmount = selectedSingleIncomeActivity
     ? String(selectedSingleIncomeActivity.pendingAmount)
     : journalForm.totalAmount;
+  const selectableAccounts = useMemo(() => accounts.filter((account) => account.accountType !== "credit"), [accounts]);
+  const pendingSupplierIds = useMemo(
+    () => new Set(creditEntries.filter((entry) => entry.pendingAmount > 0).map((entry) => entry.supplierId)),
+    [creditEntries]
+  );
+  const selectableSuppliersForPayments = useMemo(
+    () => suppliers.filter((supplier) => pendingSupplierIds.has(supplier.id)),
+    [pendingSupplierIds, suppliers]
+  );
+  const selectedPaymentSupplierPendingAmount = useMemo(() => {
+    if (!journalForm.providerId) {
+      return 0;
+    }
+
+    return creditEntries
+      .filter((entry) => String(entry.supplierId) === journalForm.providerId)
+      .reduce((sum, entry) => sum + entry.pendingAmount, 0);
+  }, [creditEntries, journalForm.providerId]);
+  const creditAllocationTotal = useMemo(
+    () =>
+      creditForm.allocations.reduce((sum, allocation) => {
+        const amount = Number(allocation.amount);
+        return Number.isFinite(amount) ? sum + amount : sum;
+      }, 0),
+    [creditForm.allocations]
+  );
   const filteredReportEntries = useMemo(
     () => (isReportsView ? journalEntries.filter((entry) => matchesReportPeriod(entry, reportPeriodFilter)) : []),
     [isReportsView, journalEntries, reportPeriodFilter]
@@ -616,6 +665,15 @@ export function NeonV2HomeSections({
       </button>
     );
   }
+
+  const debtRangeCards = [
+    { value: "all" as const, label: "Todas", count: dashboard.pendingDebtCount, amount: dashboard.pendingDebtAmount },
+    { value: "today" as const, label: "Vence hoy", count: dashboard.dueTodayCount, amount: dashboard.dueTodayAmount },
+    { value: "week" as const, label: "Esta semana", count: dashboard.dueWeekCount, amount: dashboard.dueWeekAmount },
+    { value: "month" as const, label: "Este mes", count: dashboard.dueMonthCount, amount: dashboard.dueMonthAmount },
+    { value: "overdue" as const, label: "Vencido", count: dashboard.overdueDebtCount, amount: dashboard.overdueDebtAmount },
+    { value: "settled" as const, label: "Pagos", count: dashboard.settledDebtCount, amount: dashboard.settledDebtAmount }
+  ];
 
   return (
     <>
@@ -979,15 +1037,13 @@ export function NeonV2HomeSections({
                     onChange={(event) =>
                       setAccountForm((current) => ({
                         ...current,
-                        accountType: event.target.value as AccountFormState["accountType"],
-                        dueDate: event.target.value === "credit" ? current.dueDate : ""
+                        accountType: event.target.value as AccountFormState["accountType"]
                       }))
                     }
                     style={inputStyle}
                   >
                     <option value="cash">Caja</option>
                     <option value="bank">Banco</option>
-                    <option value="credit">Credito</option>
                   </select>
                 </label>
                 <label style={fieldStyle}>
@@ -1002,17 +1058,6 @@ export function NeonV2HomeSections({
                     placeholder="0"
                   />
                 </label>
-                {accountForm.accountType === "credit" ? (
-                  <label style={fieldStyle}>
-                    <span>Fecha limite de pago</span>
-                    <input
-                      type="date"
-                      value={accountForm.dueDate}
-                      onChange={(event) => setAccountForm((current) => ({ ...current, dueDate: event.target.value }))}
-                      style={inputStyle}
-                    />
-                  </label>
-                ) : null}
                 <div style={modalActionsStyle}>
                   <button type="button" onClick={onCancelAccountEdit} style={secondaryButtonStyle}>
                     Cancelar
@@ -1216,7 +1261,7 @@ export function NeonV2HomeSections({
         <article style={panelStyle}>
           <header style={panelHeaderStyle}>
             <h2 style={panelTitleStyle}>Cuentas</h2>
-            <span style={panelCaptionStyle}>Caja, bancos y credito con saldo actualizado automaticamente.</span>
+            <span style={panelCaptionStyle}>Caja y bancos para mover plata real. Las compras o recibos pendientes viven en Creditos.</span>
           </header>
 
           <form onSubmit={onCreateAccount} style={formStyle}>
@@ -1236,15 +1281,13 @@ export function NeonV2HomeSections({
                   onChange={(event) =>
                     setAccountForm((current) => ({
                       ...current,
-                      accountType: event.target.value as AccountFormState["accountType"],
-                      dueDate: event.target.value === "credit" ? current.dueDate : ""
+                      accountType: event.target.value as AccountFormState["accountType"]
                     }))
                   }
                   style={inputStyle}
                 >
                 <option value="cash">Caja</option>
                 <option value="bank">Banco</option>
-                <option value="credit">Credito</option>
               </select>
             </label>
               <label style={fieldStyle}>
@@ -1259,17 +1302,6 @@ export function NeonV2HomeSections({
                   placeholder="0"
                 />
               </label>
-              {accountForm.accountType === "credit" ? (
-                <label style={fieldStyle}>
-                  <span>Fecha limite de pago</span>
-                  <input
-                    type="date"
-                    value={accountForm.dueDate}
-                    onChange={(event) => setAccountForm((current) => ({ ...current, dueDate: event.target.value }))}
-                    style={inputStyle}
-                  />
-                </label>
-              ) : null}
                 <button type="submit" disabled={savingAccount} style={primaryButtonStyle}>
                  {savingAccount ? "Guardando..." : "Crear cuenta"}
                 </button>
@@ -1287,8 +1319,7 @@ export function NeonV2HomeSections({
                       setAccountForm((current) => ({
                         ...current,
                         name: preset.name,
-                        accountType: preset.accountType,
-                        dueDate: preset.accountType === "credit" ? current.dueDate : ""
+                        accountType: preset.accountType
                       }))
                     }
                   >
@@ -1304,19 +1335,6 @@ export function NeonV2HomeSections({
                   <div>
                     <strong style={listItemTitleStyle}>{account.name}</strong>
                     <span style={listItemMetaStyle}>{getAccountTypeLabel(account.accountType)}</span>
-                    {account.accountType === "credit" ? (
-                      <span
-                        style={{
-                          ...listItemMetaStyle,
-                          ...getDueDateBadgeStyle(),
-                          fontWeight: 600
-                        }}
-                      >
-                        {account.dueDate
-                          ? `Fecha limite ${formatShortDate(account.dueDate)} - ${getDueDateStatusLabel(account.dueDate)}`
-                          : "Sin fecha limite cargada"}
-                      </span>
-                    ) : null}
                   </div>
                   <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
                     <strong style={listItemMoneyStyle}>{formatMoney(account.currentBalance)}</strong>
@@ -1381,13 +1399,13 @@ export function NeonV2HomeSections({
             </label>
             <label style={fieldStyle}>
                 <span>2. De donde sale o entra</span>
-                <select
-                  value={journalForm.accountId}
-                  onChange={(event) => setJournalForm((current) => ({ ...current, accountId: event.target.value }))}
-                  style={inputStyle}
-                >
+              <select
+                value={journalForm.accountId}
+                onChange={(event) => setJournalForm((current) => ({ ...current, accountId: event.target.value }))}
+                style={inputStyle}
+              >
                 <option value="">Elegir cuenta</option>
-                {accounts.map((account) => (
+                {selectableAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.name} - {getAccountTypeLabel(account.accountType)} - {formatMoney(account.currentBalance)}
                   </option>
@@ -1428,7 +1446,7 @@ export function NeonV2HomeSections({
                   style={inputStyle}
                 >
                   <option value="">Elegir cuenta destino</option>
-                  {accounts
+                  {selectableAccounts
                     .filter((account) => String(account.id) !== journalForm.accountId)
                     .map((account) => (
                       <option key={`transfer-account-${account.id}`} value={account.id}>
@@ -1444,19 +1462,46 @@ export function NeonV2HomeSections({
                 <div style={{ display: "grid", gap: 4 }}>
                     <h3 style={subPanelTitleStyle}>3. Datos de la salida</h3>
                     <span style={panelCaptionStyle}>
-                      Completa proveedor, detalle y moneda para registrar la salida.
+                      Si es un gasto directo, aca eliges proveedor y a donde va. Si estas pagando algo ya cargado en Creditos, solo registras salida de plata.
                     </span>
                   </div>
 
                   <div style={formStyle}>
                     <label style={fieldStyle}>
-                      <span>Proveedor</span>
-                      <input
-                        value={journalForm.providerName}
-                        onChange={(event) => setJournalForm((current) => ({ ...current, providerName: event.target.value }))}
+                      <span>Flujo</span>
+                      <select
+                        value={journalForm.expenseFlow}
+                        onChange={(event) =>
+                          setJournalForm((current) => ({
+                            ...current,
+                            expenseFlow: event.target.value as JournalFormState["expenseFlow"],
+                            providerId: "",
+                            allocations:
+                              event.target.value === "credit_payment" ? [createEmptyJournalAllocation()] : current.allocations
+                          }))
+                        }
                         style={inputStyle}
-                        placeholder="Proveedor o comercio"
-                      />
+                      >
+                        <option value="direct">Gasto directo</option>
+                        <option value="credit_payment">Pago de pendiente</option>
+                      </select>
+                    </label>
+                    <label style={fieldStyle}>
+                      <span>Proveedor</span>
+                      <select
+                        value={journalForm.providerId}
+                        onChange={(event) => setJournalForm((current) => ({ ...current, providerId: event.target.value }))}
+                        style={inputStyle}
+                      >
+                        <option value="">
+                          {journalForm.expenseFlow === "credit_payment" ? "Elegir proveedor con pendiente" : "Elegir proveedor"}
+                        </option>
+                        {(journalForm.expenseFlow === "credit_payment" ? selectableSuppliersForPayments : suppliers).map((supplier) => (
+                          <option key={`journal-supplier-${supplier.id}`} value={supplier.id}>
+                            {supplier.name}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                   <label style={fieldStyle}>
                     <span>Detalle</span>
@@ -1464,7 +1509,11 @@ export function NeonV2HomeSections({
                       value={journalForm.description}
                       onChange={(event) => setJournalForm((current) => ({ ...current, description: event.target.value }))}
                       style={inputStyle}
-                      placeholder="Combustible, materiales, reparacion, pago..."
+                      placeholder={
+                        journalForm.expenseFlow === "credit_payment"
+                          ? "Pago parcial, pago total, ajuste..."
+                          : "Combustible, materiales, reparacion, pago..."
+                      }
                     />
                   </label>
                   <label style={fieldStyle}>
@@ -1484,10 +1533,24 @@ export function NeonV2HomeSections({
                       </select>
                     </label>
                   </div>
+                  {journalForm.expenseFlow === "credit_payment" && journalForm.providerId ? (
+                    <span style={listItemMetaStyle}>
+                      Pendiente abierto para ese proveedor: {formatMoney(selectedPaymentSupplierPendingAmount)}. El pago se aplica a los pendientes mas viejos primero.
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
 
-            <div style={{ ...subPanelStyle, gridColumn: "1 / -1", display: journalForm.movementType === "transfer" ? "none" : "grid" }}>
+            <div
+              style={{
+                ...subPanelStyle,
+                gridColumn: "1 / -1",
+                display:
+                  journalForm.movementType === "transfer" || (journalForm.movementType === "expense" && journalForm.expenseFlow === "credit_payment")
+                    ? "none"
+                    : "grid"
+              }}
+            >
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                 <div style={{ display: "grid", gap: 4 }}>
                   <h3 style={subPanelTitleStyle}>4. A donde va este dinero</h3>
@@ -1845,6 +1908,473 @@ export function NeonV2HomeSections({
               {savingJournal ? "Guardando..." : "Registrar movimiento"}
             </button>
           </form>
+        </article>
+      </section> : null}
+
+      {isCreditsView ? <section style={contentGridStyle}>
+        <article style={panelStyle}>
+          <header style={panelHeaderStyle}>
+            <h2 style={panelTitleStyle}>Proveedores</h2>
+            <span style={panelCaptionStyle}>Todo gasto o pendiente se registra contra un proveedor formal. Si no importa el detalle, usa Proveedor generico.</span>
+          </header>
+
+          <form onSubmit={onCreateSupplier} style={formStyle}>
+            <label style={fieldStyle}>
+              <span>Nombre</span>
+              <input
+                value={supplierForm.name}
+                onChange={(event) => setSupplierForm((current) => ({ ...current, name: event.target.value }))}
+                style={inputStyle}
+                placeholder="UTE, OSE, Visa Itau, Creditel..."
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span>Direccion</span>
+              <input
+                value={supplierForm.address}
+                onChange={(event) => setSupplierForm((current) => ({ ...current, address: event.target.value }))}
+                style={inputStyle}
+                placeholder="Direccion o referencia"
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span>Telefono</span>
+              <input
+                value={supplierForm.phone}
+                onChange={(event) => setSupplierForm((current) => ({ ...current, phone: event.target.value }))}
+                style={inputStyle}
+                placeholder="2900..., 0800..."
+              />
+            </label>
+            <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+              <span>Notas</span>
+              <input
+                value={supplierForm.notes}
+                onChange={(event) => setSupplierForm((current) => ({ ...current, notes: event.target.value }))}
+                style={inputStyle}
+                placeholder="Dato util de contacto o uso"
+              />
+            </label>
+            <button type="submit" disabled={savingSupplier} style={{ ...primaryButtonStyle, gridColumn: "1 / -1" }}>
+              {savingSupplier ? "Guardando..." : "Guardar proveedor"}
+            </button>
+          </form>
+
+          <div style={listStyle}>
+            {suppliers.map((supplier) => (
+              <div key={`supplier-${supplier.id}`} style={listItemStyle}>
+                <div>
+                  <strong style={listItemTitleStyle}>{supplier.name}</strong>
+                  <span style={listItemMetaStyle}>
+                    {[supplier.address, supplier.phone, supplier.isGeneric ? "Proveedor comodin" : null].filter(Boolean).join(" - ") || "Sin datos extra"}
+                  </span>
+                  {supplier.notes ? <span style={listItemMetaStyle}>{supplier.notes}</span> : null}
+                </div>
+                <strong style={{ ...listItemMoneyStyle, color: pendingSupplierIds.has(supplier.id) ? COLORS.expenseAccent : COLORS.ink }}>
+                  {formatMoney(
+                    creditEntries
+                      .filter((entry) => entry.supplierId === supplier.id)
+                      .reduce((sum, entry) => sum + entry.pendingAmount, 0)
+                  )}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article style={panelStyle}>
+          <header style={panelHeaderStyle}>
+            <h2 style={panelTitleStyle}>Pendientes por credito</h2>
+            <span style={panelCaptionStyle}>Aca cargas compras, recibos o prestamos con vencimiento y destino del gasto. Despues el Diario solo registra el pago.</span>
+          </header>
+
+          <form onSubmit={onCreateCreditEntry} style={formStyle}>
+            <label style={fieldStyle}>
+              <span>Tipo</span>
+              <select
+                value={creditForm.creditKind}
+                onChange={(event) => setCreditForm((current) => ({ ...current, creditKind: event.target.value as CreditFormState["creditKind"] }))}
+                style={inputStyle}
+              >
+                <option value="purchase">Compra</option>
+                <option value="bill">Recibo</option>
+                <option value="loan">Prestamo</option>
+              </select>
+            </label>
+            <label style={fieldStyle}>
+              <span>Fecha</span>
+              <input
+                type="date"
+                value={creditForm.creditDate}
+                onChange={(event) => setCreditForm((current) => ({ ...current, creditDate: event.target.value }))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span>Vencimiento</span>
+              <input
+                type="date"
+                value={creditForm.dueDate}
+                onChange={(event) => setCreditForm((current) => ({ ...current, dueDate: event.target.value }))}
+                style={inputStyle}
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span>Proveedor</span>
+              <select
+                value={creditForm.supplierId}
+                onChange={(event) => setCreditForm((current) => ({ ...current, supplierId: event.target.value }))}
+                style={inputStyle}
+              >
+                <option value="">Elegir proveedor</option>
+                {suppliers.map((supplier) => (
+                  <option key={`credit-supplier-${supplier.id}`} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={fieldStyle}>
+              <span>Importe total</span>
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={creditForm.totalAmount}
+                onChange={(event) => setCreditForm((current) => ({ ...current, totalAmount: event.target.value }))}
+                style={inputStyle}
+                placeholder="0"
+              />
+            </label>
+            <label style={fieldStyle}>
+              <span>Moneda</span>
+              <select
+                value={creditForm.currencyCode}
+                onChange={(event) => setCreditForm((current) => ({ ...current, currencyCode: event.target.value as CreditFormState["currencyCode"] }))}
+                style={inputStyle}
+              >
+                <option value="UYU">Pesos (UYU)</option>
+                <option value="USD">Dolares (USD)</option>
+              </select>
+            </label>
+            <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+              <span>Detalle</span>
+              <input
+                value={creditForm.description}
+                onChange={(event) => setCreditForm((current) => ({ ...current, description: event.target.value }))}
+                style={inputStyle}
+                placeholder="Resumen, materiales, servicio, prestamo..."
+              />
+            </label>
+            <label style={{ ...fieldStyle, gridColumn: "1 / -1" }}>
+              <span>Documento</span>
+              <input
+                value={creditForm.documentRef}
+                onChange={(event) => setCreditForm((current) => ({ ...current, documentRef: event.target.value }))}
+                style={inputStyle}
+                placeholder="Factura, recibo o referencia"
+              />
+            </label>
+
+            <div style={{ ...subPanelStyle, gridColumn: "1 / -1" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "grid", gap: 4 }}>
+                  <h3 style={subPanelTitleStyle}>A que sector va este pendiente</h3>
+                  <span style={panelCaptionStyle}>Ese destino queda cerrado aca. Cuando lo pagues desde Diario ya no se vuelve a pedir.</span>
+                </div>
+                <button
+                  type="button"
+                  style={secondaryButtonStyle}
+                  onClick={() =>
+                    setCreditForm((current) => ({
+                      ...current,
+                      allocations: [...current.allocations, createEmptyJournalAllocation()]
+                    }))
+                  }
+                >
+                  Agregar linea
+                </button>
+              </div>
+
+              <div style={listStyle}>
+                {creditForm.allocations.map((allocation, index) => (
+                  <div key={`credit-allocation-${index}`} style={{ ...subPanelStyle, gap: 12 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                      <strong style={listItemTitleStyle}>Linea {index + 1}</strong>
+                      {creditForm.allocations.length > 1 ? (
+                        <button
+                          type="button"
+                          style={secondaryButtonStyle}
+                          onClick={() =>
+                            setCreditForm((current) => ({
+                              ...current,
+                              allocations: current.allocations.filter((_, allocationIndex) => allocationIndex !== index)
+                            }))
+                          }
+                        >
+                          Quitar
+                        </button>
+                      ) : null}
+                    </div>
+
+                    <div style={formStyle}>
+                      <label style={fieldStyle}>
+                        <span>Centro</span>
+                        <select
+                          value={allocation.destinationType}
+                          onChange={(event) =>
+                            setCreditForm((current) => ({
+                              ...current,
+                              allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                allocationIndex === index
+                                  ? { ...createEmptyJournalAllocation(), destinationType: event.target.value as JournalAllocationFormState["destinationType"] }
+                                  : currentAllocation
+                              )
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="">Sin asignar</option>
+                          <option value="activity">Actividad</option>
+                          <option value="vehicle">Vehiculo</option>
+                          <option value="personal">Personal</option>
+                          <option value="rental">Alquiler</option>
+                          <option value="custom">Tipo personalizado</option>
+                          <option value="other">Otros</option>
+                        </select>
+                      </label>
+                      <label style={fieldStyle}>
+                        <span>Monto</span>
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={allocation.amount}
+                          onChange={(event) =>
+                            setCreditForm((current) => ({
+                              ...current,
+                              allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                allocationIndex === index ? { ...currentAllocation, amount: event.target.value } : currentAllocation
+                              )
+                            }))
+                          }
+                          style={inputStyle}
+                          placeholder="0"
+                        />
+                      </label>
+                      {allocation.destinationType === "activity" ? (
+                        <label style={fieldStyle}>
+                          <span>Actividad</span>
+                          <select
+                            value={allocation.destinationActivityId}
+                            onChange={(event) =>
+                              setCreditForm((current) => ({
+                                ...current,
+                                allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                  allocationIndex === index ? { ...currentAllocation, destinationActivityId: event.target.value } : currentAllocation
+                                )
+                              }))
+                            }
+                            style={inputStyle}
+                          >
+                            <option value="">Elegir actividad</option>
+                            {activities.map((activity) => (
+                              <option key={`credit-activity-${activity.id}`} value={activity.id}>
+                                {formatActivityCode(activity)} - {activity.description}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {allocation.destinationType === "vehicle" ? (
+                        <label style={fieldStyle}>
+                          <span>Vehiculo</span>
+                          <select
+                            value={allocation.destinationLabel}
+                            onChange={(event) =>
+                              setCreditForm((current) => ({
+                                ...current,
+                                allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                  allocationIndex === index ? { ...currentAllocation, destinationLabel: event.target.value } : currentAllocation
+                                )
+                              }))
+                            }
+                            style={inputStyle}
+                          >
+                            <option value="">Elegir vehiculo</option>
+                            {costCenterOptionsByScope.vehicle.map((label) => (
+                              <option key={`credit-vehicle-${label}`} value={label}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {allocation.destinationType === "personal" ? (
+                        <label style={fieldStyle}>
+                          <span>Personal / Casa</span>
+                          <select
+                            value={allocation.destinationLabel}
+                            onChange={(event) =>
+                              setCreditForm((current) => ({
+                                ...current,
+                                allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                  allocationIndex === index ? { ...currentAllocation, destinationLabel: event.target.value } : currentAllocation
+                                )
+                              }))
+                            }
+                            style={inputStyle}
+                          >
+                            <option value="">Elegir destino</option>
+                            {costCenterOptionsByScope.personal.map((label) => (
+                              <option key={`credit-personal-${label}`} value={label}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {allocation.destinationType === "rental" ? (
+                        <label style={fieldStyle}>
+                          <span>Alquiler</span>
+                          <select
+                            value={allocation.destinationLabel}
+                            onChange={(event) =>
+                              setCreditForm((current) => ({
+                                ...current,
+                                allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                  allocationIndex === index ? { ...currentAllocation, destinationLabel: event.target.value } : currentAllocation
+                                )
+                              }))
+                            }
+                            style={inputStyle}
+                          >
+                            <option value="">Elegir alquiler</option>
+                            {costCenterOptionsByScope.rental.map((label) => (
+                              <option key={`credit-rental-${label}`} value={label}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {allocation.destinationType === "other" ? (
+                        <label style={fieldStyle}>
+                          <span>Otros</span>
+                          <select
+                            value={allocation.destinationLabel}
+                            onChange={(event) =>
+                              setCreditForm((current) => ({
+                                ...current,
+                                allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                  allocationIndex === index ? { ...currentAllocation, destinationLabel: event.target.value } : currentAllocation
+                                )
+                              }))
+                            }
+                            style={inputStyle}
+                          >
+                            <option value="">Elegir destino</option>
+                            {costCenterOptionsByScope.other.map((label) => (
+                              <option key={`credit-other-${label}`} value={label}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                      {allocation.destinationType === "custom" ? (
+                        <>
+                          <label style={fieldStyle}>
+                            <span>Tipo</span>
+                            <select
+                              value={allocation.customTypeLabel}
+                              onChange={(event) =>
+                                setCreditForm((current) => ({
+                                  ...current,
+                                  allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                    allocationIndex === index
+                                      ? { ...currentAllocation, customTypeLabel: event.target.value, destinationLabel: "" }
+                                      : currentAllocation
+                                  )
+                                }))
+                              }
+                              style={inputStyle}
+                            >
+                              <option value="">Elegir tipo</option>
+                              {customCostCenterTypeOptions.map((typeLabel) => (
+                                <option key={`credit-custom-type-${typeLabel}`} value={typeLabel}>
+                                  {typeLabel}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label style={fieldStyle}>
+                            <span>Centro</span>
+                            <select
+                              value={allocation.destinationLabel}
+                              onChange={(event) =>
+                                setCreditForm((current) => ({
+                                  ...current,
+                                  allocations: current.allocations.map((currentAllocation, allocationIndex) =>
+                                    allocationIndex === index ? { ...currentAllocation, destinationLabel: event.target.value } : currentAllocation
+                                  )
+                                }))
+                              }
+                              style={inputStyle}
+                            >
+                              <option value="">{allocation.customTypeLabel ? "Elegir centro" : "Primero elegi el tipo"}</option>
+                              {(customCostCentersByType.get(allocation.customTypeLabel) || []).map((label) => (
+                                <option key={`credit-custom-${allocation.customTypeLabel}-${label}`} value={label}>
+                                  {label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={listItemMetaStyle}>Total dividido: {formatMoney(creditAllocationTotal)}</span>
+                <span
+                  style={{
+                    ...listItemMetaStyle,
+                    color: Math.round((Number(creditForm.totalAmount || 0) - creditAllocationTotal) * 100) === 0 ? COLORS.incomeAccent : COLORS.expenseAccent
+                  }}
+                >
+                  Diferencia: {formatSignedMoney(Number(creditForm.totalAmount || 0) - creditAllocationTotal)}
+                </span>
+              </div>
+            </div>
+
+            <button type="submit" disabled={savingCreditEntry} style={{ ...primaryButtonStyle, gridColumn: "1 / -1" }}>
+              {savingCreditEntry ? "Guardando..." : "Guardar pendiente"}
+            </button>
+          </form>
+
+          <div style={listStyle}>
+            {creditEntries.map((entry) => (
+              <div key={`credit-entry-${entry.id}`} style={listItemStyle}>
+                <div>
+                  <strong style={listItemTitleStyle}>{entry.supplierName}</strong>
+                  <span style={listItemMetaStyle}>
+                    {getCreditKindLabel(entry.creditKind)} - {formatShortDate(entry.creditDate)} - Vence {formatShortDate(entry.dueDate)}
+                  </span>
+                  <span style={listItemMetaStyle}>
+                    {entry.description || "Sin detalle"}{entry.documentRef ? ` - ${entry.documentRef}` : ""}
+                  </span>
+                </div>
+                <div style={{ display: "grid", gap: 6, justifyItems: "end" }}>
+                  <strong style={listItemMoneyStyle}>{formatMoney(entry.pendingAmount)}</strong>
+                  <span style={listItemMetaStyle}>Total {formatMoney(entry.totalAmount)}</span>
+                </div>
+              </div>
+            ))}
+            {!loading && creditEntries.length === 0 ? <p style={emptyTextStyle}>Todavia no hay pendientes cargados.</p> : null}
+          </div>
         </article>
       </section> : null}
 
@@ -2588,19 +3118,6 @@ export function NeonV2HomeSections({
                       Gastos {formatDirectionalMoney(account.expenseAmount, "expense")} - Flujo{" "}
                       {formatSignedMoney(account.netFlowAmount)}
                     </span>
-                    {account.accountType === "credit" ? (
-                      <span
-                        style={{
-                          ...listItemMetaStyle,
-                          ...getDueDateBadgeStyle(),
-                          fontWeight: 600
-                        }}
-                      >
-                        {account.dueDate
-                          ? `Fecha limite ${formatShortDate(account.dueDate)} - ${getDueDateStatusLabel(account.dueDate)}`
-                          : "Sin fecha limite cargada"}
-                      </span>
-                    ) : null}
                   </div>
                   <strong style={{ ...listItemMoneyStyle, color: getResultTone(account.currentBalance) }}>
                     {formatMoney(account.currentBalance)}
@@ -2784,51 +3301,58 @@ export function NeonV2HomeSections({
 
           <div style={subPanelStyle}>
             <h3 style={subPanelTitleStyle}>Deuda pendiente</h3>
-            <div style={formStyle}>
-              <label style={fieldStyle}>
-                <span>Periodo</span>
-                <select
-                  value={debtReportRange}
-                  onChange={(event) => setDebtReportRange(event.target.value as DebtReportRange)}
-                  style={inputStyle}
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 145px), 1fr))", alignItems: "stretch" }}>
+              {debtRangeCards.map((card) => (
+                <button
+                  key={`debt-range-${card.value}`}
+                  type="button"
+                  onClick={() => setDebtReportRange(card.value)}
+                  style={{
+                    ...listItemStyle,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    minHeight: 78,
+                    display: "grid",
+                    gap: 6,
+                    background: debtReportRange === card.value ? COLORS.button : listItemStyle.background,
+                    color: debtReportRange === card.value ? COLORS.buttonText : "inherit",
+                    borderColor: debtReportRange === card.value ? COLORS.button : COLORS.border
+                  }}
                 >
-                  <option value="all">Todo</option>
-                  <option value="overdue">Vencido</option>
-                  <option value="today">Vence hoy</option>
-                  <option value="week">Esta semana</option>
-                  <option value="month">Este mes</option>
-                </select>
-              </label>
-            </div>
-            <div style={listStyle}>
-              <div style={listItemStyle}>
-                <div>
-                  <strong style={listItemTitleStyle}>Vence hoy</strong>
-                  <span style={listItemMetaStyle}>{dashboard.dueTodayCount} movimiento(s)</span>
-                </div>
-                <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(dashboard.dueTodayAmount)}</strong>
-              </div>
-              <div style={listItemStyle}>
-                <div>
-                  <strong style={listItemTitleStyle}>Esta semana</strong>
-                  <span style={listItemMetaStyle}>{dashboard.dueWeekCount} movimiento(s)</span>
-                </div>
-                <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(dashboard.dueWeekAmount)}</strong>
-              </div>
-              <div style={listItemStyle}>
-                <div>
-                  <strong style={listItemTitleStyle}>Este mes</strong>
-                  <span style={listItemMetaStyle}>{dashboard.dueMonthCount} movimiento(s)</span>
-                </div>
-                <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(dashboard.dueMonthAmount)}</strong>
-              </div>
-              <div style={listItemStyle}>
-                <div>
-                  <strong style={listItemTitleStyle}>Vencido</strong>
-                  <span style={listItemMetaStyle}>{dashboard.overdueDebtCount} movimiento(s)</span>
-                </div>
-                <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(dashboard.overdueDebtAmount)}</strong>
-              </div>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                    <strong
+                      style={{
+                        ...listItemTitleStyle,
+                        color: debtReportRange === card.value ? COLORS.buttonText : listItemTitleStyle.color,
+                        margin: 0
+                      }}
+                    >
+                      {card.label}
+                    </strong>
+                    <strong
+                      style={{
+                        ...listItemMoneyStyle,
+                        fontSize: 15,
+                        lineHeight: 1.15,
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        color: debtReportRange === card.value ? COLORS.buttonText : COLORS.expenseAccent
+                      }}
+                    >
+                      {formatMoney(card.amount)}
+                    </strong>
+                  </div>
+                  <span
+                    style={{
+                      ...listItemMetaStyle,
+                      marginTop: 0,
+                      color: debtReportRange === card.value ? "rgba(255,255,255,0.82)" : listItemMetaStyle.color
+                    }}
+                  >
+                    {card.count} pendiente(s)
+                  </span>
+                </button>
+              ))}
             </div>
             <div style={listStyle}>
               {getVisibleItems("report-pending-debt", dashboard.pendingDebtEntries).map((entry) => {
@@ -2838,98 +3362,46 @@ export function NeonV2HomeSections({
                   <div key={`debt-${entry.movementId}`} style={listItemStyle}>
                     <div>
                       <strong style={listItemTitleStyle}>{entry.cardLabel || entry.accountName}</strong>
-                      <span style={listItemMetaStyle}>
-                        {entry.providerName || "Sin proveedor"} - {entry.documentRef || "Sin documento"}
-                      </span>
+                      <span style={listItemMetaStyle}>{entry.description || entry.documentRef || "Sin detalle cargado"}</span>
                       <span style={listItemMetaStyle}>
                         {entry.dueDate ? `Vence ${formatShortDate(entry.dueDate)}` : "Sin vencimiento"} - {getDueDateStatusLabel(entry.dueDate)} -{" "}
                         {entry.currencyCode || "UYU"}
                       </span>
+                      <span style={listItemMetaStyle}>
+                        Original {formatMoney(entry.originalAmount)} - Pagado {formatMoney(entry.paidAmount)} - Pendiente {formatMoney(entry.pendingAmount)}
+                      </span>
+                      {entry.appliedPayments.length > 0 ? (
+                        <span style={listItemMetaStyle}>
+                          {entry.appliedPayments
+                            .map((payment) => `${formatShortDate(payment.paymentDate)} ${formatMoney(payment.amount)} desde ${payment.sourceAccountName}`)
+                            .join(" - ")}
+                        </span>
+                      ) : (
+                        <span style={listItemMetaStyle}>Todavia no tiene pagos aplicados.</span>
+                      )}
                     </div>
-                    <strong style={{ ...listItemMoneyStyle, color: isOverdue ? COLORS.expenseAccent : listItemMoneyStyle.color }}>
-                      {formatMoney(entry.pendingAmount)}
+                    <strong
+                      style={{
+                        ...listItemMoneyStyle,
+                        color:
+                          debtReportRange === "settled"
+                            ? COLORS.incomeAccent
+                            : isOverdue
+                              ? COLORS.expenseAccent
+                              : listItemMoneyStyle.color
+                      }}
+                    >
+                      {debtReportRange === "settled" ? formatMoney(entry.paidAmount) : formatMoney(entry.pendingAmount)}
                     </strong>
                   </div>
                 );
               })}
               {dashboard.pendingDebtEntries.length === 0 ? (
-                <p style={emptyTextStyle}>No hay deuda pendiente para el filtro elegido.</p>
+                <p style={emptyTextStyle}>
+                  {debtReportRange === "settled" ? "Todavia no hay pagos concluidos para mostrar." : "No hay deuda pendiente para el filtro elegido."}
+                </p>
               ) : null}
               {renderVisibleItemsButton("report-pending-debt", dashboard.pendingDebtEntries.length)}
-            </div>
-          </div>
-
-          <div style={subPanelStyle}>
-            <h3 style={subPanelTitleStyle}>Deuda por tarjeta</h3>
-            <div style={listStyle}>
-              {getVisibleItems("report-debt-by-card", dashboard.pendingDebtByCard).map((bucket) => (
-                <div key={`debt-card-${bucket.label}`} style={listItemStyle}>
-                  <div>
-                    <strong style={listItemTitleStyle}>{bucket.label}</strong>
-                    <span style={listItemMetaStyle}>{bucket.count} movimiento(s) pendientes</span>
-                  </div>
-                  <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>{formatMoney(bucket.amount)}</strong>
-                </div>
-              ))}
-              {dashboard.pendingDebtByCard.length === 0 ? (
-                <p style={emptyTextStyle}>Todavia no hay tarjetas con deuda acumulada.</p>
-              ) : null}
-              {renderVisibleItemsButton("report-debt-by-card", dashboard.pendingDebtByCard.length)}
-            </div>
-          </div>
-
-          <div style={subPanelStyle}>
-            <h3 style={subPanelTitleStyle}>Tarjetas y vencimientos</h3>
-            <div style={listStyle}>
-              {getVisibleItems("report-card-debt-summaries", dashboard.cardDebtSummaries).map((card) => (
-                <div key={`card-summary-${card.cardLabel}`} style={listItemStyle}>
-                  <div>
-                    <strong style={listItemTitleStyle}>{card.cardLabel}</strong>
-                    <span style={listItemMetaStyle}>{card.pendingCount} movimiento(s) pendientes</span>
-                    <span style={listItemMetaStyle}>
-                      {card.nextDueDate
-                        ? `Proximo vencimiento ${formatShortDate(card.nextDueDate)} - ${getDueDateStatusLabel(card.nextDueDate)} - ${formatMoney(card.nextDueAmount)}`
-                        : "Sin vencimientos futuros cargados"}
-                    </span>
-                    <span style={listItemMetaStyle}>
-                      {card.overdueCount > 0
-                        ? `Vencido ${formatMoney(card.overdueAmount)} en ${card.overdueCount} movimiento(s)`
-                        : "Sin deuda vencida"}
-                    </span>
-                  </div>
-                  <strong style={{ ...listItemMoneyStyle, color: card.overdueCount > 0 ? COLORS.expenseAccent : COLORS.ink }}>
-                    {formatMoney(card.pendingAmount)}
-                  </strong>
-                </div>
-              ))}
-              {dashboard.cardDebtSummaries.length === 0 ? (
-                <p style={emptyTextStyle}>Todavia no hay tarjetas con vencimientos visibles.</p>
-              ) : null}
-              {renderVisibleItemsButton("report-card-debt-summaries", dashboard.cardDebtSummaries.length)}
-            </div>
-          </div>
-
-          <div style={subPanelStyle}>
-            <h3 style={subPanelTitleStyle}>Pagos de tarjeta recientes</h3>
-            <div style={listStyle}>
-              {getVisibleItems("report-card-settlements", dashboard.recentCardSettlements).map((settlement) => (
-                <div key={`card-settlement-${settlement.movementId}`} style={listItemStyle}>
-                  <div>
-                    <strong style={listItemTitleStyle}>{settlement.cardLabel}</strong>
-                    <span style={listItemMetaStyle}>
-                      {formatShortDate(settlement.movementDate)} - {formatHour(settlement.createdAt)} - Sale desde {settlement.sourceAccountName}
-                    </span>
-                    <span style={listItemMetaStyle}>{settlement.description || "Pago de tarjeta sin descripcion"}</span>
-                  </div>
-                  <strong style={{ ...listItemMoneyStyle, color: COLORS.expenseAccent }}>
-                    {formatDirectionalMoney(settlement.totalAmount, "expense")}
-                  </strong>
-                </div>
-              ))}
-              {dashboard.recentCardSettlements.length === 0 ? (
-                <p style={emptyTextStyle}>Todavia no hay pagos de tarjeta registrados.</p>
-              ) : null}
-              {renderVisibleItemsButton("report-card-settlements", dashboard.recentCardSettlements.length)}
             </div>
           </div>
 

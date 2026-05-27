@@ -25,16 +25,26 @@ Eso significa:
 ## Vistas visibles actuales
 
 - `Diario`
+- `Creditos`
 - `Resumen`
 - `Actividades`
+- `Reportes`
+
+Orden visible actual del workspace:
+
+- `Diario`
+- `Creditos`
+- `Resumen`
+- `Actividades`
+- `Centros de costo`
 - `Reportes`
 
 ## Idea central del producto hoy
 
 - primero existe el movimiento
-- despues se elige de donde sale o entra el dinero
-- si es credito se completan tarjeta y vencimiento
-- despues se reparte ese movimiento entre centros de costo
+- si una compra o recibo queda pendiente, primero se carga en `Creditos`
+- ahi mismo se define proveedor, vencimiento y destino del gasto
+- despues, cuando realmente sale la plata, se registra en `Diario`
 
 ## Lo que hoy existe en la UI
 
@@ -63,24 +73,40 @@ Permite registrar:
 - cuenta
 - importe total
 - detalle
-- multiples lineas de asignacion
+- multiples lineas de asignacion cuando es gasto directo o ingreso
 
 Y para salidas tambien:
 
-- detalle
-- proveedor
+- proveedor registrado
 - moneda
 - kilometraje y litros cuando aplica
 
-Si la cuenta es `credit`, tambien permite:
-
-- tarjeta
-- vencimiento
-
 Ademas soporta:
 
-- `pago de tarjeta`
+- `pago de pendiente`
 - `traspaso` entre cuentas
+
+Regla vigente:
+
+- `Diario` se usa para `Caja` y `Bancos`
+- si se paga algo ya cargado en `Creditos`, ya no se vuelve a pedir a donde va el gasto
+
+### Creditos
+
+Permite registrar:
+
+- compras a credito
+- recibos pendientes
+- prestamos
+
+Y en cada caso definir:
+
+- proveedor registrado
+- fecha
+- vencimiento
+- importe
+- documento o detalle
+- a que actividad o sector va el gasto
 
 ### Actividades
 
@@ -106,13 +132,23 @@ Regla vigente del piloto:
 Hoy incluye:
 
 - saldos por cuenta
-- deuda pendiente y tarjetas
+- deuda pendiente unificada con filtros por vencimiento
 - gastos e ingresos por centro de costo
 - movimientos del centro
 - libro diario filtrado
 - actividades pendientes
 - resultados por actividad
 - exploracion por cuenta con movimientos asociados
+
+En deuda pendiente hoy se ve:
+
+- proveedor
+- detalle o documento
+- vencimiento
+- monto original
+- monto pagado
+- saldo pendiente
+- historial de pagos aplicados
 
 Y distingue mejor entre:
 
@@ -127,14 +163,16 @@ Y distingue mejor entre:
 Hoy ya esta implementado y validado:
 
 - cuentas base y cuentas nuevas
-- soporte de cuentas `cash`, `bank` y `credit`
+- soporte operativo de cuentas `cash` y `bank`
 - `traspaso` entre cuentas sin contaminar ingresos ni gastos
+- alta de `proveedores`
+- modulo de `creditos` con pendientes por proveedor
 - libro diario V3 para piloto
 - division por multiples lineas
 - asignacion a actividad, vehiculo, personal, alquiler, otros y tipo personalizado
 - kilometraje y litros en lineas de vehiculo
-- deuda pendiente por credito
-- neteo de deuda con pagos de tarjeta
+- deuda pendiente por proveedor
+- neteo de deuda con pagos hechos desde diario
 - actividades integradas al nuevo modelo
 - cobrado y pendiente calculados desde ingresos del journal
 - empresa comercial ligada a la factura de actividad
@@ -146,7 +184,7 @@ Hoy ya esta implementado y validado:
 
 ## Presets y demo local
 
-La UI ya sugiere presets para cuentas, tarjetas y centros de costo, y mantiene un dataset demo corto para mostrar el sistema sin ruido.
+La UI ya sugiere presets para cuentas y centros de costo, y mantiene un dataset demo corto para mostrar el sistema sin ruido.
 
 Referencia operativa relacionada:
 
@@ -159,7 +197,7 @@ Este corte se mantiene en estado de piloto.
 Todavia no se endurece:
 
 - catalogo oficial definitivo de cuentas
-- catalogo oficial definitivo de tarjetas
+- criterios finos para agrupar varios pendientes del mismo proveedor
 - gestion fuerte de alquileres como entidad propia
 - edicion y borrado logico visibles
 - limpieza final de piezas heredadas

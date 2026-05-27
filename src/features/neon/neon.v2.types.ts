@@ -4,11 +4,17 @@ export type ClientFormState = {
   notes: string;
 };
 
+export type SupplierFormState = {
+  name: string;
+  address: string;
+  phone: string;
+  notes: string;
+};
+
 export type AccountFormState = {
   name: string;
-  accountType: "cash" | "bank" | "credit";
+  accountType: "cash" | "bank";
   openingBalance: string;
-  dueDate: string;
 };
 
 export type ActivityFormState = {
@@ -40,17 +46,28 @@ export type JournalFormState = {
   totalAmount: string;
   description: string;
   expenseKind: "operational" | "credit_settlement";
-  providerName: string;
+  expenseFlow: "direct" | "credit_payment";
+  providerId: string;
   documentRef: string;
   quantity: string;
   unitLabel: string;
   currencyCode: "" | "UYU" | "USD";
-  creditCardLabel: string;
-  dueDate: string;
   allocations: JournalAllocationFormState[];
 };
 
-export type DebtReportRange = "all" | "overdue" | "today" | "week" | "month";
+export type CreditFormState = {
+  creditKind: "purchase" | "loan" | "bill";
+  creditDate: string;
+  dueDate: string;
+  supplierId: string;
+  totalAmount: string;
+  description: string;
+  documentRef: string;
+  currencyCode: "UYU" | "USD";
+  allocations: JournalAllocationFormState[];
+};
+
+export type DebtReportRange = "all" | "overdue" | "today" | "week" | "month" | "settled";
 
 export type ReportPeriodRange = "all" | "today" | "week" | "month";
 
@@ -64,7 +81,7 @@ export type ReportCenterScope = "all" | "activity" | "vehicle" | "personal" | "r
 
 export type NeonCostCenterScope = Exclude<ReportCenterScope, "all" | "activity">;
 
-export type NeonWorkspaceView = "idle" | "overview" | "journal" | "activities" | "reports" | "centers";
+export type NeonWorkspaceView = "idle" | "overview" | "journal" | "credits" | "activities" | "reports" | "centers";
 
 export type NeonCompanyKey = "empresa_verde" | "empresa_negra" | "empresa_c";
 
