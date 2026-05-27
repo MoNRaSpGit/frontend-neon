@@ -91,6 +91,16 @@ Tambien quedo ajustado:
 - `Reportes` como ultima pestana del workspace
 - proveedores nuevos primero en su lista
 - pendientes nuevos primero en su lista
+- `Pagos realizados` separado de `Deuda pendiente`
+- `Pagos realizados` muestra solo pendientes ya cerrados con `saldo 0`
+- el detalle de pagos se ve apilado, un pago por renglon
+- cada pendiente cerrado permite `Exportar PDF`
+
+Regla actual de lectura:
+
+- si una deuda tiene saldo pendiente, queda solo en `Deuda pendiente`
+- si la deuda ya quedo cancelada, pasa a `Pagos realizados`
+- el PDF se descarga directo desde navegador
 
 ### Validacion tecnica del corte 2026-05-27
 

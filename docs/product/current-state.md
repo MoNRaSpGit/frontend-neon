@@ -133,6 +133,7 @@ Hoy incluye:
 
 - saldos por cuenta
 - deuda pendiente unificada con filtros por vencimiento
+- pagos realizados de pendientes ya cancelados
 - gastos e ingresos por centro de costo
 - movimientos del centro
 - libro diario filtrado
@@ -149,6 +150,13 @@ En deuda pendiente hoy se ve:
 - monto pagado
 - saldo pendiente
 - historial de pagos aplicados
+
+En pagos realizados hoy se ve:
+
+- solo pendientes cerrados con `saldo 0`
+- una fila por pendiente cerrado
+- historial de pagos apilado por fecha
+- exportacion directa a `PDF`
 
 Y distingue mejor entre:
 

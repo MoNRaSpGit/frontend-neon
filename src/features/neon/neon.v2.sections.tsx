@@ -1,5 +1,6 @@
 ﻿import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { ACTIVITY_TYPE_OPTIONS, COLORS } from "./neon.home.config";
+import { jsPDF } from "jspdf";
 import {
   addDaysToDateInputValue,
   formatActivityCode,
@@ -666,13 +667,98 @@ export function NeonV2HomeSections({
     );
   }
 
+  function exportPaymentEntryToPdf(entry: DashboardSummary["paymentReportEntries"][number]) {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const supplierLabel = entry.providerName || entry.cardLabel || entry.accountName;
+    const fileSlug = supplierLabel.replace(/[^\w-]+/g, "_");
+    const left = 16;
+    const right = doc.internal.pageSize.getWidth() - 16;
+    const bottom = doc.internal.pageSize.getHeight() - 16;
+    let y = 18;
+
+    const ensureSpace = (height: number) => {
+      if (y + height <= bottom) {
+        return;
+      }
+
+      doc.addPage();
+      y = 18;
+    };
+
+    const writeField = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, left, y);
+      doc.setFont("helvetica", "normal");
+      const lines = doc.splitTextToSize(value, right - left - 28);
+      doc.text(lines, left + 28, y);
+      y += Math.max(7, lines.length * 6);
+    };
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Pagos realizados", left, y);
+    y += 10;
+
+    doc.setFontSize(14);
+    doc.text(supplierLabel, left, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    writeField("Detalle:", entry.description || entry.documentRef || "Sin detalle cargado");
+    writeField("Pendiente:", formatShortDate(entry.movementDate));
+    writeField("Vencimiento:", entry.dueDate ? formatShortDate(entry.dueDate) : "Sin vencimiento");
+    writeField("Moneda:", entry.currencyCode || "UYU");
+
+    y += 4;
+    const summaryTop = y;
+    const summaryWidth = (right - left - 8) / 3;
+    const summaryValues = [
+      { label: "Original", value: formatMoney(entry.originalAmount) },
+      { label: "Pagado", value: formatMoney(entry.paidAmount) },
+      { label: "Saldo", value: formatMoney(entry.pendingAmount) }
+    ];
+
+    summaryValues.forEach((item, index) => {
+      const cardLeft = left + index * (summaryWidth + 4);
+      doc.roundedRect(cardLeft, summaryTop, summaryWidth, 18, 2, 2);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      doc.text(item.label, cardLeft + 4, summaryTop + 6);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(item.value, cardLeft + 4, summaryTop + 13);
+    });
+
+    y = summaryTop + 26;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Detalle de pagos", left, y);
+    y += 8;
+
+    for (const payment of entry.appliedPayments) {
+      ensureSpace(22);
+      doc.roundedRect(left, y - 4, right - left, 18, 2, 2);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(formatShortDate(payment.paymentDate), left + 4, y + 2);
+      doc.text(formatMoney(payment.amount), right - 4, y + 2, { align: "right" });
+
+      doc.setFont("helvetica", "normal");
+      doc.text(payment.sourceAccountName, left + 4, y + 8);
+      const detailLines = doc.splitTextToSize(payment.description || "Pago de pendiente", right - left - 8);
+      doc.text(detailLines.slice(0, 2), left + 4, y + 14);
+      y += 22;
+    }
+
+    doc.save(`pagos_${fileSlug}_${entry.movementDate}.pdf`);
+  }
+
   const debtRangeCards = [
     { value: "all" as const, label: "Todas", count: dashboard.pendingDebtCount, amount: dashboard.pendingDebtAmount },
     { value: "today" as const, label: "Vence hoy", count: dashboard.dueTodayCount, amount: dashboard.dueTodayAmount },
     { value: "week" as const, label: "Esta semana", count: dashboard.dueWeekCount, amount: dashboard.dueWeekAmount },
     { value: "month" as const, label: "Este mes", count: dashboard.dueMonthCount, amount: dashboard.dueMonthAmount },
-    { value: "overdue" as const, label: "Vencido", count: dashboard.overdueDebtCount, amount: dashboard.overdueDebtAmount },
-    { value: "settled" as const, label: "Pagos", count: dashboard.settledDebtCount, amount: dashboard.settledDebtAmount }
+    { value: "overdue" as const, label: "Vencido", count: dashboard.overdueDebtCount, amount: dashboard.overdueDebtAmount }
   ];
 
   return (
@@ -3383,25 +3469,101 @@ export function NeonV2HomeSections({
                     <strong
                       style={{
                         ...listItemMoneyStyle,
-                        color:
-                          debtReportRange === "settled"
-                            ? COLORS.incomeAccent
-                            : isOverdue
-                              ? COLORS.expenseAccent
-                              : listItemMoneyStyle.color
+                        color: isOverdue ? COLORS.expenseAccent : listItemMoneyStyle.color
                       }}
                     >
-                      {debtReportRange === "settled" ? formatMoney(entry.paidAmount) : formatMoney(entry.pendingAmount)}
+                      {formatMoney(entry.pendingAmount)}
                     </strong>
                   </div>
                 );
               })}
               {dashboard.pendingDebtEntries.length === 0 ? (
-                <p style={emptyTextStyle}>
-                  {debtReportRange === "settled" ? "Todavia no hay pagos concluidos para mostrar." : "No hay deuda pendiente para el filtro elegido."}
-                </p>
+                <p style={emptyTextStyle}>No hay deuda pendiente para el filtro elegido.</p>
               ) : null}
               {renderVisibleItemsButton("report-pending-debt", dashboard.pendingDebtEntries.length)}
+            </div>
+          </div>
+
+          <div style={subPanelStyle}>
+            <h3 style={subPanelTitleStyle}>Pagos realizados</h3>
+            <div style={listStyle}>
+              <div style={listItemStyle}>
+                <div>
+                  <strong style={listItemTitleStyle}>Periodo filtrado</strong>
+                  <span style={listItemMetaStyle}>
+                    {dashboard.paymentReportCount} pendiente(s) con pagos registrados en el periodo elegido
+                  </span>
+                </div>
+                <strong style={{ ...listItemMoneyStyle, color: COLORS.incomeAccent }}>
+                  {formatMoney(dashboard.paymentReportAmount)}
+                </strong>
+              </div>
+              {getVisibleItems("report-settled-debt", dashboard.paymentReportEntries).map((entry) => (
+                <div key={`settled-debt-${entry.movementId}`} style={listItemStyle}>
+                  <div>
+                    <strong style={listItemTitleStyle}>{entry.cardLabel || entry.accountName}</strong>
+                    <span style={listItemMetaStyle}>
+                      {entry.description || entry.documentRef || "Sin detalle cargado"}
+                    </span>
+                    <span style={listItemMetaStyle}>
+                      Original {formatMoney(entry.originalAmount)} - Pagado {formatMoney(entry.paidAmount)} - Saldo {formatMoney(entry.pendingAmount)}
+                    </span>
+                    <span style={listItemMetaStyle}>
+                      {entry.dueDate ? `Vence ${formatShortDate(entry.dueDate)}` : "Sin vencimiento"} - {entry.currencyCode || "UYU"}
+                    </span>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 6,
+                        marginTop: 4,
+                        paddingTop: 6,
+                        borderTop: `1px solid ${COLORS.border}`
+                      }}
+                    >
+                      {entry.appliedPayments.map((payment) => (
+                        <div
+                          key={`payment-detail-${entry.movementId}-${payment.settlementId}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: 12,
+                            flexWrap: "wrap"
+                          }}
+                        >
+                          <span style={{ ...listItemMetaStyle, marginTop: 0 }}>
+                            {formatShortDate(payment.paymentDate)} - {payment.sourceAccountName}
+                            {payment.description ? ` - ${payment.description}` : ""}
+                          </span>
+                          <strong
+                            style={{
+                              ...listItemMetaStyle,
+                              marginTop: 0,
+                              color: COLORS.incomeAccent,
+                              fontWeight: 800
+                            }}
+                          >
+                            {formatMoney(payment.amount)}
+                          </strong>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+                    <strong style={{ ...listItemMoneyStyle, color: COLORS.incomeAccent }}>
+                      {formatMoney(entry.appliedPayments.reduce((sum, payment) => sum + payment.amount, 0))}
+                    </strong>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <button type="button" onClick={() => exportPaymentEntryToPdf(entry)} style={secondaryButtonStyle}>
+                        Exportar PDF
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {dashboard.paymentReportEntries.length === 0 ? (
+                <p style={emptyTextStyle}>No hay pagos realizados para el periodo elegido.</p>
+              ) : null}
+              {renderVisibleItemsButton("report-settled-debt", dashboard.paymentReportEntries.length)}
             </div>
           </div>
 

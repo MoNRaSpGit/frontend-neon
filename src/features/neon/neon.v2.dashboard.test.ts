@@ -204,6 +204,11 @@ describe("buildDashboardSummary debt and settlements", () => {
 
     expect(summary.settledDebtCount).toBe(1);
     expect(summary.settledDebtAmount).toBe(700);
+    expect(summary.settledDebtEntries).toHaveLength(1);
+    expect(summary.paymentReportCount).toBe(1);
+    expect(summary.paymentReportAmount).toBe(700);
+    expect(summary.paymentReportEntries).toHaveLength(1);
+    expect(summary.paymentReportEntries[0]?.appliedPayments).toHaveLength(2);
     expect(summary.pendingDebtEntries[0]).toMatchObject({
       providerName: "Cococola",
       originalAmount: 700,
@@ -211,6 +216,126 @@ describe("buildDashboardSummary debt and settlements", () => {
       pendingAmount: 0
     });
     expect(summary.pendingDebtEntries[0]?.appliedPayments).toHaveLength(2);
+
+    vi.useRealTimers();
+  });
+
+  it("filters payment report entries by the selected report period", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-27T12:00:00.000Z"));
+
+    const accounts: NeonAccount[] = [createAccount({ id: 1, name: "Caja", accountType: "cash" })];
+    const creditEntries: NeonCreditEntry[] = [
+      createCreditEntry({
+        id: 121,
+        supplierId: 20,
+        supplierName: "UTE",
+        creditKind: "bill",
+        creditDate: "2026-04-01",
+        dueDate: "2026-04-10",
+        totalAmount: 1000,
+        pendingAmount: 0
+      })
+    ];
+    const journalEntries: NeonJournalEntry[] = [
+      createEntry({
+        id: 221,
+        movementType: "expense",
+        movementDate: "2026-04-20",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 500,
+        providerId: 20,
+        providerName: "UTE",
+        description: "Pago abril",
+        expenseKind: "credit_settlement"
+      }),
+      createEntry({
+        id: 222,
+        movementType: "expense",
+        movementDate: "2026-05-03",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 500,
+        providerId: 20,
+        providerName: "UTE",
+        description: "Pago mayo",
+        expenseKind: "credit_settlement"
+      })
+    ];
+
+    const summary = buildDashboardSummary(accounts, [], journalEntries, creditEntries, "all", {
+      range: "all",
+      dateFrom: "2026-04-01",
+      dateTo: "2026-04-30"
+    });
+
+    expect(summary.paymentReportCount).toBe(1);
+    expect(summary.paymentReportAmount).toBe(500);
+    expect(summary.paymentReportEntries).toHaveLength(1);
+    expect(summary.paymentReportEntries[0]).toMatchObject({
+      providerName: "UTE",
+      originalAmount: 1000,
+      pendingAmount: 0
+    });
+    expect(summary.paymentReportEntries[0]?.appliedPayments).toEqual([
+      expect.objectContaining({
+        paymentDate: "2026-04-20",
+        amount: 500,
+        sourceAccountName: "Caja"
+      })
+    ]);
+
+    vi.useRealTimers();
+  });
+
+  it("keeps partially paid debts out of pagos realizados while they still have balance", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-27T12:00:00.000Z"));
+
+    const accounts: NeonAccount[] = [createAccount({ id: 1, name: "Caja", accountType: "cash" })];
+    const creditEntries: NeonCreditEntry[] = [
+      createCreditEntry({
+        id: 131,
+        supplierId: 30,
+        supplierName: "El Trigal",
+        creditKind: "purchase",
+        creditDate: "2026-05-01",
+        dueDate: "2026-05-30",
+        totalAmount: 1800,
+        pendingAmount: 800
+      })
+    ];
+    const journalEntries: NeonJournalEntry[] = [
+      createEntry({
+        id: 231,
+        movementType: "expense",
+        movementDate: "2026-05-04",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 1000,
+        providerId: 30,
+        providerName: "El Trigal",
+        description: "Pago parcial",
+        expenseKind: "credit_settlement"
+      })
+    ];
+
+    const summary = buildDashboardSummary(accounts, [], journalEntries, creditEntries, "all", {
+      range: "all",
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-31"
+    });
+
+    expect(summary.pendingDebtEntries).toHaveLength(1);
+    expect(summary.pendingDebtEntries[0]).toMatchObject({
+      providerName: "El Trigal",
+      pendingAmount: 800,
+      paidAmount: 1000
+    });
+    expect(summary.paymentReportCount).toBe(0);
+    expect(summary.paymentReportAmount).toBe(0);
+    expect(summary.paymentReportEntries).toHaveLength(0);
 
     vi.useRealTimers();
   });

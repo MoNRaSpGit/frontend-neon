@@ -161,11 +161,15 @@ export type DashboardSummary = {
   dueMonthAmount: number;
   settledDebtCount: number;
   settledDebtAmount: number;
+  paymentReportCount: number;
+  paymentReportAmount: number;
   selectedDebtRange: DebtReportRange;
   selectedReportPeriodRange: ReportPeriodRange;
   selectedReportDateFrom: string;
   selectedReportDateTo: string;
   pendingDebtEntries: PendingDebtItem[];
+  settledDebtEntries: PendingDebtItem[];
+  paymentReportEntries: PendingDebtItem[];
   pendingDebtByCard: DashboardBucket[];
   cardDebtSummaries: CardDebtSummary[];
   recentCardSettlements: CardSettlementItem[];
@@ -389,6 +393,37 @@ function buildRecentCardSettlements(journalEntries: NeonJournalEntry[], limit: n
     }));
 }
 
+function buildPaymentReportEntries(entries: PendingDebtItem[], period: ReportPeriodFilter, today: string) {
+  return entries
+    .map((entry) => {
+      if (entry.pendingAmount > 0 || entry.paidAmount <= 0) {
+        return null;
+      }
+
+      const filteredPayments = entry.appliedPayments.filter((payment) => matchesDateToReportPeriod(payment.paymentDate, period, today));
+
+      if (filteredPayments.length === 0) {
+        return null;
+      }
+
+      return {
+        ...entry,
+        appliedPayments: filteredPayments
+      };
+    })
+    .filter((entry): entry is PendingDebtItem => Boolean(entry))
+    .sort((left, right) => {
+      const leftLatestPayment = left.appliedPayments[left.appliedPayments.length - 1]?.paymentDate || left.movementDate;
+      const rightLatestPayment = right.appliedPayments[right.appliedPayments.length - 1]?.paymentDate || right.movementDate;
+
+      if (leftLatestPayment !== rightLatestPayment) {
+        return rightLatestPayment.localeCompare(leftLatestPayment);
+      }
+
+      return right.movementId - left.movementId;
+    });
+}
+
 function buildAccountReports(accounts: NeonAccount[], journalEntries: NeonJournalEntry[]) {
   return accounts
     .map((account) => {
@@ -460,13 +495,64 @@ function buildActivityResults(activities: NeonActivity[], journalEntries: NeonJo
     );
 }
 
-function filterDebtEntries(entries: PendingDebtItem[], range: DebtReportRange, today: string) {
+function matchesDateToReportPeriod(date: string, period: ReportPeriodFilter, today: string) {
+  const hasCustomRange = Boolean(period.dateFrom || period.dateTo);
+
+  if (hasCustomRange) {
+    if (period.dateFrom && date < period.dateFrom) {
+      return false;
+    }
+
+    if (period.dateTo && date > period.dateTo) {
+      return false;
+    }
+
+    return true;
+  }
+
+  if (period.range === "all") {
+    return true;
+  }
+
+  const weekEnd = addDaysToDateInputValue(today, 6);
+  const monthEnd = getMonthEndDateInputValue(today);
+
+  if (period.range === "today") {
+    return date === today;
+  }
+
+  if (period.range === "week") {
+    return date >= today && date <= weekEnd;
+  }
+
+  return date >= today && date <= monthEnd;
+}
+
+function filterSettledDebtEntries(entries: PendingDebtItem[], period: ReportPeriodFilter, today: string) {
+  return entries.filter((entry) => {
+    if (entry.pendingAmount > 0 || entry.paidAmount <= 0) {
+      return false;
+    }
+
+    if (entry.appliedPayments.length === 0) {
+      return false;
+    }
+
+    return entry.appliedPayments.some((payment) => matchesDateToReportPeriod(payment.paymentDate, period, today));
+  });
+}
+
+function filterDebtEntries(entries: PendingDebtItem[], range: DebtReportRange, today: string, reportPeriodFilter: ReportPeriodFilter) {
   const weekEnd = addDaysToDateInputValue(today, 6);
   const monthEnd = getMonthEndDateInputValue(today);
 
   return entries.filter((entry) => {
     if (range === "settled") {
-      return entry.pendingAmount <= 0 && entry.paidAmount > 0;
+      if (entry.pendingAmount > 0 || entry.paidAmount <= 0 || entry.appliedPayments.length === 0) {
+        return false;
+      }
+
+      return entry.appliedPayments.some((payment) => matchesDateToReportPeriod(payment.paymentDate, reportPeriodFilter, today));
     }
 
     if (entry.pendingAmount <= 0) {
@@ -949,15 +1035,16 @@ export function buildDashboardSummary(
       }
       return right.movementId - left.movementId;
     });
+  const paymentReportEntries = buildPaymentReportEntries(allDebtEntries, reportPeriodFilter, today);
   const pendingDebtEntries = allDebtEntries.filter((entry) => entry.pendingAmount > 0);
-  const settledDebtEntries = allDebtEntries.filter((entry) => entry.pendingAmount <= 0 && entry.paidAmount > 0);
+  const settledDebtEntries = filterSettledDebtEntries(allDebtEntries, reportPeriodFilter, today);
   const overdueDebtEntries = pendingDebtEntries.filter((entry) => Boolean(entry.dueDate && entry.dueDate < today));
   const dueTodayEntries = pendingDebtEntries.filter((entry) => entry.dueDate === today);
   const dueWeekEntries = pendingDebtEntries.filter((entry) => Boolean(entry.dueDate && entry.dueDate >= today && entry.dueDate <= weekEnd));
   const dueMonthEntries = pendingDebtEntries.filter(
     (entry) => Boolean(entry.dueDate && entry.dueDate >= today && entry.dueDate <= monthEnd)
   );
-  const visibleDebtEntries = filterDebtEntries(allDebtEntries, debtReportRange, today);
+  const visibleDebtEntries = filterDebtEntries(allDebtEntries, debtReportRange, today, reportPeriodFilter);
 
   const topExpenseCenters = buildBuckets(
     reportEntries.filter((entry) => entry.movementType === "expense"),
@@ -1030,11 +1117,18 @@ export function buildDashboardSummary(
     dueMonthAmount: dueMonthEntries.reduce((sum, entry) => sum + entry.pendingAmount, 0),
     settledDebtCount: settledDebtEntries.length,
     settledDebtAmount: settledDebtEntries.reduce((sum, entry) => sum + entry.paidAmount, 0),
+    paymentReportCount: paymentReportEntries.length,
+    paymentReportAmount: paymentReportEntries.reduce(
+      (sum, entry) => sum + entry.appliedPayments.reduce((paymentSum, payment) => paymentSum + payment.amount, 0),
+      0
+    ),
     selectedDebtRange: debtReportRange,
     selectedReportPeriodRange: reportPeriodFilter.range,
     selectedReportDateFrom: reportPeriodFilter.dateFrom,
     selectedReportDateTo: reportPeriodFilter.dateTo,
     pendingDebtEntries: visibleDebtEntries.slice(0, 12),
+    settledDebtEntries: settledDebtEntries.slice(0, 12),
+    paymentReportEntries: paymentReportEntries.slice(0, 12),
     pendingDebtByCard: buildDebtBuckets(visibleDebtEntries, 5),
     cardDebtSummaries: buildCardDebtSummaries(pendingDebtEntries, today, 6),
     recentCardSettlements: buildRecentCardSettlements(reportEntries, 8),
