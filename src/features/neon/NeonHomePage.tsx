@@ -224,7 +224,9 @@ export function NeonHomePage() {
     description: "",
     expenseKind: "operational",
     expenseFlow: "direct",
+    paymentApplicationMode: "fifo",
     providerId: "",
+    selectedCreditEntryId: "",
     documentRef: "",
     quantity: "",
     unitLabel: "",
@@ -817,17 +819,42 @@ export function NeonHomePage() {
 
       if (journalForm.expenseFlow === "credit_payment") {
         const selectedSupplierId = Number(journalForm.providerId);
-        const supplierPendingAmount = creditEntries
-          .filter((entry) => entry.supplierId === selectedSupplierId)
-          .reduce((sum, entry) => sum + entry.pendingAmount, 0);
+        const compatibleCreditEntries = creditEntries
+          .filter(
+            (entry) =>
+              entry.supplierId === selectedSupplierId && entry.currencyCode === (journalForm.currencyCode || "UYU")
+          );
+        const supplierPendingAmount = compatibleCreditEntries.reduce((sum, entry) => sum + entry.pendingAmount, 0);
 
         if (supplierPendingAmount <= 0) {
-          toast.error("Ese proveedor no tiene pendientes para cancelar.");
+          toast.error(`Ese proveedor no tiene pendientes para cancelar en ${journalForm.currencyCode || "UYU"}.`);
           return;
         }
 
+        if (journalForm.paymentApplicationMode === "specific") {
+          if (!journalForm.selectedCreditEntryId) {
+            toast.error("Elegi el pendiente puntual que queres pagar.");
+            return;
+          }
+
+          const selectedCreditEntry = compatibleCreditEntries.find((entry) => String(entry.id) === journalForm.selectedCreditEntryId);
+          if (!selectedCreditEntry || selectedCreditEntry.pendingAmount <= 0) {
+            toast.error("Ese pendiente ya no esta disponible para pagar.");
+            return;
+          }
+
+          if (totalAmount > selectedCreditEntry.pendingAmount) {
+            toast.error(
+              `El pago supera el saldo del pendiente elegido en ${journalForm.currencyCode || "UYU"} (${selectedCreditEntry.pendingAmount.toFixed(2)}).`
+            );
+            return;
+          }
+        }
+
         if (totalAmount > supplierPendingAmount) {
-          toast.error(`El pago supera el pendiente abierto para ese proveedor (${supplierPendingAmount.toFixed(2)}).`);
+          toast.error(
+            `El pago supera el pendiente abierto para ese proveedor en ${journalForm.currencyCode || "UYU"} (${supplierPendingAmount.toFixed(2)}).`
+          );
           return;
         }
       }
@@ -862,6 +889,13 @@ export function NeonHomePage() {
               : "operational"
             : undefined,
         providerId: journalForm.movementType === "expense" ? Number(journalForm.providerId) : undefined,
+        settlementCreditEntryId:
+          journalForm.movementType === "expense" &&
+          journalForm.expenseFlow === "credit_payment" &&
+          journalForm.paymentApplicationMode === "specific" &&
+          journalForm.selectedCreditEntryId
+            ? Number(journalForm.selectedCreditEntryId)
+            : undefined,
         documentRef: undefined,
         quantity: undefined,
         unitLabel: undefined,
@@ -886,7 +920,9 @@ export function NeonHomePage() {
         description: "",
         expenseKind: "operational",
         expenseFlow: "direct",
+        paymentApplicationMode: "fifo",
         providerId: "",
+        selectedCreditEntryId: "",
         documentRef: "",
         quantity: "",
         unitLabel: "",

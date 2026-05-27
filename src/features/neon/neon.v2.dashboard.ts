@@ -182,6 +182,14 @@ export type DashboardSummary = {
 
 export type DerivedCommercialStatus = "pendiente_de_facturar" | "pendiente_de_cobrar" | "cobrado";
 
+function buildSupplierCurrencyKey(supplierId: number, currencyCode: "UYU" | "USD" | null) {
+  return `${supplierId}:${currencyCode || "UYU"}`;
+}
+
+function getSupplierDebtLabel(supplierName: string, currencyCode: "UYU" | "USD" | null) {
+  return `${supplierName} · ${currencyCode || "UYU"}`;
+}
+
 export function getCompanyLabel(company: NeonCompanyKey) {
   if (company === "empresa_negra") return "Empresa B";
   if (company === "empresa_c") return "Empresa C";
@@ -821,6 +829,16 @@ export function buildReportStory(
 
 function buildPendingDebtItems(creditEntries: NeonCreditEntry[], journalEntries: NeonJournalEntry[]) {
   const settlementsBySupplier = new Map<
+    string,
+    Array<{
+      settlementId: number;
+      paymentDate: string;
+      remainingAmount: number;
+      sourceAccountName: string;
+      description: string | null;
+    }>
+  >();
+  const settlementsByCreditEntry = new Map<
     number,
     Array<{
       settlementId: number;
@@ -846,8 +864,21 @@ function buildPendingDebtItems(creditEntries: NeonCreditEntry[], journalEntries:
 
       return left.id - right.id;
     })) {
-    const supplierId = settlement.providerId!;
-    const currentSettlements = settlementsBySupplier.get(supplierId) || [];
+    if (typeof settlement.settlementCreditEntryId === "number") {
+      const currentSettlements = settlementsByCreditEntry.get(settlement.settlementCreditEntryId) || [];
+      currentSettlements.push({
+        settlementId: settlement.id,
+        paymentDate: settlement.movementDate,
+        remainingAmount: settlement.totalAmount,
+        sourceAccountName: settlement.accountName,
+        description: settlement.description
+      });
+      settlementsByCreditEntry.set(settlement.settlementCreditEntryId, currentSettlements);
+      continue;
+    }
+
+    const supplierKey = buildSupplierCurrencyKey(settlement.providerId!, settlement.currencyCode);
+    const currentSettlements = settlementsBySupplier.get(supplierKey) || [];
     currentSettlements.push({
       settlementId: settlement.id,
       paymentDate: settlement.movementDate,
@@ -855,7 +886,7 @@ function buildPendingDebtItems(creditEntries: NeonCreditEntry[], journalEntries:
       sourceAccountName: settlement.accountName,
       description: settlement.description
     });
-    settlementsBySupplier.set(supplierId, currentSettlements);
+    settlementsBySupplier.set(supplierKey, currentSettlements);
   }
 
   return creditEntries
@@ -870,11 +901,13 @@ function buildPendingDebtItems(creditEntries: NeonCreditEntry[], journalEntries:
       return left.id - right.id;
     })
     .flatMap((entry) => {
-      const supplierSettlements = settlementsBySupplier.get(entry.supplierId) || [];
+      const directSettlements = settlementsByCreditEntry.get(entry.id) || [];
+      const supplierSettlements = settlementsBySupplier.get(buildSupplierCurrencyKey(entry.supplierId, entry.currencyCode)) || [];
+      const availableSettlements = [...directSettlements, ...supplierSettlements];
       let remainingOriginalAmount = entry.totalAmount;
       const appliedPayments: PendingDebtItem["appliedPayments"] = [];
 
-      for (const settlement of supplierSettlements) {
+      for (const settlement of availableSettlements) {
         if (remainingOriginalAmount <= 0) {
           break;
         }
@@ -908,7 +941,7 @@ function buildPendingDebtItems(creditEntries: NeonCreditEntry[], journalEntries:
           movementDate: entry.creditDate,
           dueDate: entry.dueDate,
           accountName: "Credito pendiente",
-          cardLabel: entry.supplierName,
+          cardLabel: getSupplierDebtLabel(entry.supplierName, entry.currencyCode),
           providerName: entry.supplierName,
           documentRef: entry.documentRef,
           currencyCode: entry.currencyCode,

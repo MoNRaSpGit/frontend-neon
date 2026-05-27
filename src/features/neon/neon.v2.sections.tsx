@@ -462,22 +462,51 @@ export function NeonV2HomeSections({
     : journalForm.totalAmount;
   const selectableAccounts = useMemo(() => accounts.filter((account) => account.accountType !== "credit"), [accounts]);
   const pendingSupplierIds = useMemo(
-    () => new Set(creditEntries.filter((entry) => entry.pendingAmount > 0).map((entry) => entry.supplierId)),
-    [creditEntries]
+    () =>
+      new Set(
+        creditEntries
+          .filter((entry) => entry.pendingAmount > 0 && entry.currencyCode === (journalForm.currencyCode || "UYU"))
+          .map((entry) => entry.supplierId)
+      ),
+    [creditEntries, journalForm.currencyCode]
   );
   const selectableSuppliersForPayments = useMemo(
     () => suppliers.filter((supplier) => pendingSupplierIds.has(supplier.id)),
     [pendingSupplierIds, suppliers]
+  );
+  const compatibleCreditEntriesForPayment = useMemo(
+    () =>
+      !journalForm.providerId
+        ? []
+        : creditEntries
+            .filter(
+              (entry) =>
+                String(entry.supplierId) === journalForm.providerId &&
+                entry.currencyCode === (journalForm.currencyCode || "UYU") &&
+                entry.pendingAmount > 0
+            )
+            .sort((left, right) => {
+              const leftDue = left.dueDate || left.creditDate;
+              const rightDue = right.dueDate || right.creditDate;
+              if (leftDue !== rightDue) {
+                return leftDue.localeCompare(rightDue);
+              }
+
+              return left.id - right.id;
+            }),
+    [creditEntries, journalForm.currencyCode, journalForm.providerId]
   );
   const selectedPaymentSupplierPendingAmount = useMemo(() => {
     if (!journalForm.providerId) {
       return 0;
     }
 
-    return creditEntries
-      .filter((entry) => String(entry.supplierId) === journalForm.providerId)
-      .reduce((sum, entry) => sum + entry.pendingAmount, 0);
-  }, [creditEntries, journalForm.providerId]);
+    if (journalForm.paymentApplicationMode === "specific" && journalForm.selectedCreditEntryId) {
+      return compatibleCreditEntriesForPayment.find((entry) => String(entry.id) === journalForm.selectedCreditEntryId)?.pendingAmount || 0;
+    }
+
+    return compatibleCreditEntriesForPayment.reduce((sum, entry) => sum + entry.pendingAmount, 0);
+  }, [compatibleCreditEntriesForPayment, journalForm.paymentApplicationMode, journalForm.providerId, journalForm.selectedCreditEntryId]);
   const creditAllocationTotal = useMemo(
     () =>
       creditForm.allocations.reduce((sum, allocation) => {
@@ -1561,7 +1590,9 @@ export function NeonV2HomeSections({
                           setJournalForm((current) => ({
                             ...current,
                             expenseFlow: event.target.value as JournalFormState["expenseFlow"],
+                            paymentApplicationMode: "fifo",
                             providerId: "",
+                            selectedCreditEntryId: "",
                             allocations:
                               event.target.value === "credit_payment" ? [createEmptyJournalAllocation()] : current.allocations
                           }))
@@ -1576,7 +1607,14 @@ export function NeonV2HomeSections({
                       <span>Proveedor</span>
                       <select
                         value={journalForm.providerId}
-                        onChange={(event) => setJournalForm((current) => ({ ...current, providerId: event.target.value }))}
+                        onChange={(event) =>
+                          setJournalForm((current) => ({
+                            ...current,
+                            providerId: event.target.value,
+                            paymentApplicationMode: "fifo",
+                            selectedCreditEntryId: ""
+                          }))
+                        }
                         style={inputStyle}
                       >
                         <option value="">
@@ -1584,7 +1622,7 @@ export function NeonV2HomeSections({
                         </option>
                         {(journalForm.expenseFlow === "credit_payment" ? selectableSuppliersForPayments : suppliers).map((supplier) => (
                           <option key={`journal-supplier-${supplier.id}`} value={supplier.id}>
-                            {supplier.name}
+                            {journalForm.expenseFlow === "credit_payment" ? `${supplier.name} · ${journalForm.currencyCode || "UYU"}` : supplier.name}
                           </option>
                         ))}
                       </select>
@@ -1609,7 +1647,10 @@ export function NeonV2HomeSections({
                       onChange={(event) =>
                         setJournalForm((current) => ({
                           ...current,
-                          currencyCode: event.target.value as JournalFormState["currencyCode"]
+                          currencyCode: event.target.value as JournalFormState["currencyCode"],
+                          providerId: current.expenseFlow === "credit_payment" ? "" : current.providerId,
+                          paymentApplicationMode: "fifo",
+                          selectedCreditEntryId: ""
                         }))
                       }
                       style={inputStyle}
@@ -1619,9 +1660,52 @@ export function NeonV2HomeSections({
                       </select>
                     </label>
                   </div>
+                  {journalForm.expenseFlow === "credit_payment" && compatibleCreditEntriesForPayment.length > 1 ? (
+                    <div style={{ ...formStyle, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                      <label style={fieldStyle}>
+                        <span>Aplicacion del pago</span>
+                        <select
+                          value={journalForm.paymentApplicationMode}
+                          onChange={(event) =>
+                            setJournalForm((current) => ({
+                              ...current,
+                              paymentApplicationMode: event.target.value as JournalFormState["paymentApplicationMode"],
+                              selectedCreditEntryId: ""
+                            }))
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="fifo">Automatico: mas viejo primero</option>
+                          <option value="specific">Elegir pendiente puntual</option>
+                        </select>
+                      </label>
+                      {journalForm.paymentApplicationMode === "specific" ? (
+                        <label style={fieldStyle}>
+                          <span>Pendiente puntual</span>
+                          <select
+                            value={journalForm.selectedCreditEntryId}
+                            onChange={(event) =>
+                              setJournalForm((current) => ({ ...current, selectedCreditEntryId: event.target.value }))
+                            }
+                            style={inputStyle}
+                          >
+                            <option value="">Elegir pendiente</option>
+                            {compatibleCreditEntriesForPayment.map((entry) => (
+                              <option key={`payment-credit-entry-${entry.id}`} value={entry.id}>
+                                {(entry.documentRef || entry.description || `Pendiente ${formatShortDate(entry.creditDate)}`)} ·{" "}
+                                {entry.dueDate ? `vence ${formatShortDate(entry.dueDate)}` : "sin vencimiento"} · saldo {formatMoney(entry.pendingAmount)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {journalForm.expenseFlow === "credit_payment" && journalForm.providerId ? (
                     <span style={listItemMetaStyle}>
-                      Pendiente abierto para ese proveedor: {formatMoney(selectedPaymentSupplierPendingAmount)}. El pago se aplica a los pendientes mas viejos primero.
+                      {journalForm.paymentApplicationMode === "specific" && journalForm.selectedCreditEntryId
+                        ? `Saldo del pendiente elegido en ${journalForm.currencyCode || "UYU"}: ${formatMoney(selectedPaymentSupplierPendingAmount)}.`
+                        : `Pendiente abierto para ese proveedor en ${journalForm.currencyCode || "UYU"}: ${formatMoney(selectedPaymentSupplierPendingAmount)}. El pago se aplica a los pendientes mas viejos primero dentro de esa moneda.`}
                     </span>
                   ) : null}
                 </div>

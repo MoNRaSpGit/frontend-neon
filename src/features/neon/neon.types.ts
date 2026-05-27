@@ -86,6 +86,7 @@ export type NeonJournalEntry = {
   description: string | null;
   providerId?: number | null;
   providerName: string | null;
+  settlementCreditEntryId?: number | null;
   documentRef: string | null;
   quantity: number | null;
   unitLabel: string | null;

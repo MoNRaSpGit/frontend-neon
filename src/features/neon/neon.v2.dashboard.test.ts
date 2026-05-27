@@ -29,6 +29,7 @@ function createEntry(input: Partial<NeonJournalEntry> & Pick<NeonJournalEntry, "
     description: input.description ?? null,
     providerId: input.providerId ?? null,
     providerName: input.providerName ?? null,
+    settlementCreditEntryId: input.settlementCreditEntryId ?? null,
     documentRef: input.documentRef ?? null,
     quantity: input.quantity ?? null,
     unitLabel: input.unitLabel ?? null,
@@ -143,7 +144,7 @@ describe("buildDashboardSummary debt and settlements", () => {
     expect(summary.pendingDebtAmount).toBe(1100);
     expect(summary.pendingDebtCount).toBe(2);
     expect(summary.pendingDebtByCard[0]).toMatchObject({
-      label: "UTE",
+      label: "UTE · UYU",
       amount: 1100,
       count: 2
     });
@@ -336,6 +337,136 @@ describe("buildDashboardSummary debt and settlements", () => {
     expect(summary.paymentReportCount).toBe(0);
     expect(summary.paymentReportAmount).toBe(0);
     expect(summary.paymentReportEntries).toHaveLength(0);
+
+    vi.useRealTimers();
+  });
+
+  it("does not mix settlements across currencies for the same supplier", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-27T12:00:00.000Z"));
+
+    const accounts: NeonAccount[] = [createAccount({ id: 1, name: "Caja", accountType: "cash" })];
+    const creditEntries: NeonCreditEntry[] = [
+      createCreditEntry({
+        id: 141,
+        supplierId: 40,
+        supplierName: "Proveedor Mixto",
+        creditKind: "purchase",
+        creditDate: "2026-05-01",
+        dueDate: "2026-05-10",
+        totalAmount: 1000,
+        pendingAmount: 0,
+        currencyCode: "UYU"
+      }),
+      createCreditEntry({
+        id: 142,
+        supplierId: 40,
+        supplierName: "Proveedor Mixto",
+        creditKind: "purchase",
+        creditDate: "2026-05-02",
+        dueDate: "2026-05-12",
+        totalAmount: 300,
+        pendingAmount: 300,
+        currencyCode: "USD"
+      })
+    ];
+    const journalEntries: NeonJournalEntry[] = [
+      createEntry({
+        id: 241,
+        movementType: "expense",
+        movementDate: "2026-05-05",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 1000,
+        providerId: 40,
+        providerName: "Proveedor Mixto",
+        description: "Pago pesos",
+        expenseKind: "credit_settlement",
+        currencyCode: "UYU"
+      })
+    ];
+
+    const summary = buildDashboardSummary(accounts, [], journalEntries, creditEntries, "all", {
+      range: "all",
+      dateFrom: "2026-05-01",
+      dateTo: "2026-05-31"
+    });
+
+    expect(summary.paymentReportEntries).toHaveLength(1);
+    expect(summary.paymentReportEntries[0]).toMatchObject({
+      providerName: "Proveedor Mixto",
+      currencyCode: "UYU",
+      pendingAmount: 0
+    });
+    expect(summary.pendingDebtEntries).toHaveLength(1);
+    expect(summary.pendingDebtEntries[0]).toMatchObject({
+      providerName: "Proveedor Mixto",
+      currencyCode: "USD",
+      pendingAmount: 300,
+      paidAmount: 0
+    });
+
+    vi.useRealTimers();
+  });
+
+  it("applies a payment to the selected pending entry when specified", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-27T12:00:00.000Z"));
+
+    const accounts: NeonAccount[] = [createAccount({ id: 1, name: "Caja", accountType: "cash" })];
+    const creditEntries: NeonCreditEntry[] = [
+      createCreditEntry({
+        id: 151,
+        supplierId: 50,
+        supplierName: "Proveedor FIFO",
+        creditKind: "purchase",
+        creditDate: "2026-05-01",
+        dueDate: "2026-05-10",
+        totalAmount: 1000,
+        pendingAmount: 1000,
+        currencyCode: "UYU",
+        description: "Factura vieja"
+      }),
+      createCreditEntry({
+        id: 152,
+        supplierId: 50,
+        supplierName: "Proveedor FIFO",
+        creditKind: "purchase",
+        creditDate: "2026-05-03",
+        dueDate: "2026-05-12",
+        totalAmount: 800,
+        pendingAmount: 300,
+        currencyCode: "UYU",
+        description: "Factura nueva"
+      })
+    ];
+    const journalEntries: NeonJournalEntry[] = [
+      createEntry({
+        id: 251,
+        movementType: "expense",
+        movementDate: "2026-05-05",
+        accountId: 1,
+        accountName: "Caja",
+        totalAmount: 500,
+        providerId: 50,
+        providerName: "Proveedor FIFO",
+        description: "Pago dirigido",
+        expenseKind: "credit_settlement",
+        currencyCode: "UYU",
+        settlementCreditEntryId: 152
+      })
+    ];
+
+    const summary = buildDashboardSummary(accounts, [], journalEntries, creditEntries, "all");
+
+    expect(summary.pendingDebtEntries.find((entry) => entry.movementId === 151)).toMatchObject({
+      pendingAmount: 1000,
+      paidAmount: 0
+    });
+    expect(summary.pendingDebtEntries.find((entry) => entry.movementId === 152)).toMatchObject({
+      pendingAmount: 300,
+      paidAmount: 500
+    });
 
     vi.useRealTimers();
   });

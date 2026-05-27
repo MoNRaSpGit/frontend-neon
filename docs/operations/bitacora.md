@@ -72,7 +72,10 @@ Regla actual:
 - `Diario` usa solo `Caja` y `Bancos` para mover plata real
 - si el gasto es directo, sigue pidiendo proveedor y asignacion
 - si el gasto es `pago de pendiente`, pide proveedor registrado e importe
-- el pago se aplica contra pendientes del proveedor desde el mas viejo al mas nuevo
+- si hay un solo pendiente compatible, el pago se aplica directo
+- si hay varios pendientes del mismo proveedor y misma moneda, se puede dejar `automatico` o elegir `pendiente puntual`
+- en modo automatico, el pago se aplica desde el mas viejo al mas nuevo
+- la aplicacion nunca mezcla monedas del mismo proveedor
 
 ### Reportes
 
@@ -95,6 +98,7 @@ Tambien quedo ajustado:
 - `Pagos realizados` muestra solo pendientes ya cerrados con `saldo 0`
 - el detalle de pagos se ve apilado, un pago por renglon
 - cada pendiente cerrado permite `Exportar PDF`
+- deudas del mismo proveedor quedan separadas por moneda visible
 
 Regla actual de lectura:
 

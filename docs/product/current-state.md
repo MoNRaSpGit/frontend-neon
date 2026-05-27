@@ -90,6 +90,8 @@ Regla vigente:
 
 - `Diario` se usa para `Caja` y `Bancos`
 - si se paga algo ya cargado en `Creditos`, ya no se vuelve a pedir a donde va el gasto
+- si hay varios pendientes compatibles del mismo proveedor, se puede aplicar automatico o elegir uno puntual
+- los pagos de pendientes no mezclan `UYU` y `USD`
 
 ### Creditos
 
@@ -144,6 +146,7 @@ Hoy incluye:
 En deuda pendiente hoy se ve:
 
 - proveedor
+- proveedor separado por moneda cuando corresponde
 - detalle o documento
 - vencimiento
 - monto original

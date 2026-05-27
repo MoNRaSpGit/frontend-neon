@@ -47,7 +47,9 @@ export type JournalFormState = {
   description: string;
   expenseKind: "operational" | "credit_settlement";
   expenseFlow: "direct" | "credit_payment";
+  paymentApplicationMode: "fifo" | "specific";
   providerId: string;
+  selectedCreditEntryId: string;
   documentRef: string;
   quantity: string;
   unitLabel: string;

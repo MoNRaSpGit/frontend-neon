@@ -37,6 +37,7 @@ type JournalCreationInput = {
   description?: string;
   expenseKind?: "operational" | "credit_settlement";
   providerId?: number;
+  settlementCreditEntryId?: number;
   providerName?: string;
   documentRef?: string;
   quantity?: number;
@@ -1007,6 +1008,7 @@ function normalizeJournalEntry(entry: NeonJournalEntry): NeonJournalEntry {
   return {
     ...entry,
     providerId: typeof entry.providerId === "number" ? entry.providerId : null,
+    settlementCreditEntryId: typeof entry.settlementCreditEntryId === "number" ? entry.settlementCreditEntryId : null,
     companyKey: inferredCompanyKey,
     transferAccountId: entry.transferAccountId || null,
     transferAccountName: entry.transferAccountName || null
@@ -1279,7 +1281,8 @@ function deriveActivities(): NeonActivity[] {
 }
 
 function deriveCreditEntries(): NeonCreditEntry[] {
-  const settlementsBySupplier = new Map<number, number>();
+  const settlementsBySupplier = new Map<string, number>();
+  const settlementsByCreditEntry = new Map<number, number>();
 
   for (const entry of journalStore
     .filter((journalEntry) => journalEntry.movementType === "expense" && journalEntry.expenseKind === "credit_settlement")
@@ -1294,7 +1297,16 @@ function deriveCreditEntries(): NeonCreditEntry[] {
       continue;
     }
 
-    settlementsBySupplier.set(entry.providerId, (settlementsBySupplier.get(entry.providerId) || 0) + entry.totalAmount);
+    if (typeof entry.settlementCreditEntryId === "number") {
+      settlementsByCreditEntry.set(
+        entry.settlementCreditEntryId,
+        (settlementsByCreditEntry.get(entry.settlementCreditEntryId) || 0) + entry.totalAmount
+      );
+      continue;
+    }
+
+    const supplierKey = `${entry.providerId}:${entry.currencyCode || "UYU"}`;
+    settlementsBySupplier.set(supplierKey, (settlementsBySupplier.get(supplierKey) || 0) + entry.totalAmount);
   }
 
   return clone(creditEntriesStore)
@@ -1309,14 +1321,21 @@ function deriveCreditEntries(): NeonCreditEntry[] {
       return left.id - right.id;
     })
     .map((entry) => {
-      let remainingSettlement = settlementsBySupplier.get(entry.supplierId) || 0;
-      const paidAmount = Math.min(remainingSettlement, entry.totalAmount);
-      const pendingAmount = Math.max(Number((entry.totalAmount - paidAmount).toFixed(2)), 0);
-      settlementsBySupplier.set(entry.supplierId, Number((remainingSettlement - paidAmount).toFixed(2)));
+      let remainingToCover = entry.totalAmount;
+      const directSettlement = settlementsByCreditEntry.get(entry.id) || 0;
+      const directAppliedAmount = Math.min(directSettlement, remainingToCover);
+      remainingToCover = Number((remainingToCover - directAppliedAmount).toFixed(2));
+      settlementsByCreditEntry.set(entry.id, Number((directSettlement - directAppliedAmount).toFixed(2)));
+
+      const supplierKey = `${entry.supplierId}:${entry.currencyCode || "UYU"}`;
+      const supplierSettlement = settlementsBySupplier.get(supplierKey) || 0;
+      const supplierAppliedAmount = Math.min(supplierSettlement, remainingToCover);
+      remainingToCover = Number((remainingToCover - supplierAppliedAmount).toFixed(2));
+      settlementsBySupplier.set(supplierKey, Number((supplierSettlement - supplierAppliedAmount).toFixed(2)));
 
       return {
         ...entry,
-        pendingAmount
+        pendingAmount: Math.max(remainingToCover, 0)
       };
     });
 }
@@ -1701,6 +1720,7 @@ export async function createNeonJournalEntry(input: JournalCreationInput) {
     description: input.description?.trim() || null,
     providerId: supplier?.id || null,
     providerName: supplier?.name || input.providerName?.trim() || null,
+    settlementCreditEntryId: typeof input.settlementCreditEntryId === "number" ? input.settlementCreditEntryId : null,
     documentRef: input.documentRef?.trim() || null,
     quantity: input.quantity ?? null,
     unitLabel: input.unitLabel?.trim() || null,
