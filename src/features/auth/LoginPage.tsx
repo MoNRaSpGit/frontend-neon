@@ -8,20 +8,17 @@ import { AuthSession } from "./auth.types";
 import { getDefaultAuthenticatedRoute } from "./module-routing";
 
 const DEMO_CREDENTIALS = {
-  email: "neon.demo@saaspro.com"
+  email: "neon.demo@saaspro.com",
+  password: "demo12345"
 } as const;
 
 const DEMO_ACCESS_ENABLED = true;
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState<string>(DEMO_CREDENTIALS.email);
-  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function handleLogin() {
     if (!DEMO_ACCESS_ENABLED) {
       toast.error("Acceso pausado por ahora. Todavia no habilites entrada al demo.");
       return;
@@ -32,10 +29,7 @@ export function LoginPage() {
       const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password
-        })
+        body: JSON.stringify(DEMO_CREDENTIALS)
       });
 
       const payload = (await response.json().catch(() => ({}))) as Partial<AuthSession> & { message?: string };
@@ -56,41 +50,18 @@ export function LoginPage() {
   return (
     <main style={pageStyle}>
       <section style={cardStyle}>
-        <form style={formStyle} onSubmit={(event) => void handleLogin(event)}>
-          <label style={fieldStyle}>
-            <span style={fieldLabelStyle}>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              autoComplete="username"
-              required
-              style={inputStyle}
-            />
-          </label>
-          <label style={fieldStyle}>
-            <span style={fieldLabelStyle}>Clave</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="current-password"
-              required
-              style={inputStyle}
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={submitting || !DEMO_ACCESS_ENABLED}
-            style={{
-              ...primaryButtonStyle,
-              opacity: DEMO_ACCESS_ENABLED ? 1 : 0.55,
-              cursor: DEMO_ACCESS_ENABLED ? "pointer" : "not-allowed"
-            }}
-          >
-            {submitting ? "Iniciando..." : "Iniciar"}
-          </button>
-        </form>
+        <button
+          type="button"
+          onClick={handleLogin}
+          disabled={submitting || !DEMO_ACCESS_ENABLED}
+          style={{
+            ...primaryButtonStyle,
+            opacity: DEMO_ACCESS_ENABLED ? 1 : 0.55,
+            cursor: DEMO_ACCESS_ENABLED ? "pointer" : "not-allowed"
+          }}
+        >
+          {submitting ? "Iniciando..." : "Iniciar"}
+        </button>
         {!DEMO_ACCESS_ENABLED ? <p style={statusTextStyle}>Acceso al demo pausado temporalmente.</p> : null}
         <BuildMetaCard />
       </section>
@@ -117,31 +88,6 @@ const cardStyle: React.CSSProperties = {
   display: "grid",
   gap: 16,
   boxShadow: "0 20px 40px rgba(32, 68, 89, 0.08)"
-};
-
-const formStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 14
-};
-
-const fieldStyle: React.CSSProperties = {
-  display: "grid",
-  gap: 8
-};
-
-const fieldLabelStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 800,
-  color: "#526a76"
-};
-
-const inputStyle: React.CSSProperties = {
-  minHeight: 46,
-  borderRadius: 14,
-  border: "1px solid #cfe0e9",
-  padding: "10px 12px",
-  color: "#173645",
-  fontSize: 15
 };
 
 const primaryButtonStyle: React.CSSProperties = {
