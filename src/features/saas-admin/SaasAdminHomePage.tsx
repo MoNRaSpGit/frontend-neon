@@ -42,6 +42,8 @@ export function SaasAdminHomePage() {
           <article key={item.id} style={tenantCardStyle}>
             <strong>{item.name}</strong>
             <span>{item.slug}</span>
+            <span>Usuario base: {item.primaryUser?.email || "sin usuario"}</span>
+            <span>Ultimo login: {item.primaryUser?.lastLoginAtUy || "sin ingresos"}</span>
             <span>Modulos: {item.modules.join(", ") || "ninguno"}</span>
           </article>
         ))}

@@ -19,6 +19,8 @@ export type SaasAdminTenantItem = {
     email: string;
     fullName: string | null;
     membershipRole: string | null;
+    lastLoginAt: string | null;
+    lastLoginAtUy: string | null;
   } | null;
   modules: string[];
 };
